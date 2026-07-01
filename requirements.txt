@@ -1,0 +1,2 @@
+espn-api
+python-dotenv
