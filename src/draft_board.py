@@ -33,6 +33,12 @@ def fetch_position(position):
         info = rec.get("player") or {}
         if points is None or points < MIN_POINTS:
             continue
+        full_name = f"{info.get('first_name', '')} {info.get('last_name', '')}".strip()
+        if not full_name:
+            full_name = (
+                f"{info.get('team') or 'FA'} DST"  # defenses have no personal name
+            )
+
         players.append(
             {
                 "name": f"{info.get('first_name', '')} {info.get('last_name', '')}".strip(),

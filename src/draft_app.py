@@ -122,8 +122,38 @@ m1.markdown(
 m2.markdown(stat_card("Overall Picks", picks_made), unsafe_allow_html=True)
 m3.markdown(stat_card("Your Roster", len(my_roster)), unsafe_allow_html=True)
 
+
 # ---- Sidebar ----
+# Cache AI news for an hour so repeat lookups on the same player are free
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_news(name, team, position):
+    from news import get_player_news
+
+    return get_player_news(name, team, position)
+
+
 with st.sidebar:
+    # ---- Player Search (top: the tool you reach for most) ----
+    st.markdown("<div class='sec-head'>Player Search</div>", unsafe_allow_html=True)
+    news_options = {f"{p['name']} · {p['position']} {p['team']}": p for p in board}
+    choice = st.selectbox(
+        "Find a player", options=list(news_options.keys()), label_visibility="collapsed"
+    )
+    if st.button("Get news", type="primary", use_container_width=True):
+        picked = news_options[choice]
+        with st.spinner(f"Searching outlets for {picked['name']}..."):
+            st.session_state.news_summary = cached_news(
+                picked["name"], picked["team"], picked["position"]
+            )
+            st.session_state.news_player = picked["name"]
+
+    if st.session_state.get("news_summary"):
+        st.markdown(f"**{st.session_state.news_player}**")
+        st.markdown(st.session_state.news_summary)
+
+    st.divider()
+
+    # ---- My Roster ----
     st.markdown("<div class='sec-head'>My Roster</div>", unsafe_allow_html=True)
     if my_roster:
         for p in my_roster:
@@ -137,6 +167,7 @@ with st.sidebar:
             "<span class='rank-num'>No picks yet</span>", unsafe_allow_html=True
         )
 
+    # ---- Still Need ----
     st.markdown("<div class='sec-head'>Still Need</div>", unsafe_allow_html=True)
     need_labels = [f"{pos} x{n}" for pos, n in needs.items() if n > 0]
     st.markdown(
@@ -148,26 +179,9 @@ with st.sidebar:
         else "<span class='mono' style='color:#34d399'>Starters filled ✓</span>",
         unsafe_allow_html=True,
     )
+
     st.divider()
     st.button("Reset draft", on_click=reset_draft, use_container_width=True)
-
-# ---- Recommendation ----
-if available:
-    pick = max(available, key=adjusted_score)
-    fills = needs.get(pick["position"], 0) > 0
-    reason = (
-        f"fills a need at {pick['position']}" if fills else "best value on the board"
-    )
-    st.markdown(
-        f"""
-    <div class='rec-panel'>
-      <div class='rec-label'>Recommended Pick</div>
-      <div class='rec-name'>{pick["name"]} &nbsp; {badge(pick["position"], pick.get("tier", ""))}</div>
-      <div class='rec-meta'>{reason} · PROJ {pick["points"]} · VOR {pick["vor"]}</div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
 
 # ---- Board ----
 st.markdown("<div class='sec-head'>Best Available</div>", unsafe_allow_html=True)
@@ -210,58 +224,3 @@ def cached_news(name, team, position):
     from news import get_player_news
 
     return get_player_news(name, team, position)
-
-
-# Build a dropdown of every player on the board, best value first
-news_options = {f"{p['name']} ({p['position']}, {p['team']})": p for p in board}
-choice = st.selectbox("Look up a player", options=list(news_options.keys()))
-
-if st.button("Get latest news", type="primary"):
-    picked = news_options[choice]
-    with st.spinner(f"Searching outlets for {picked['name']}..."):
-        summary = cached_news(picked["name"], picked["team"], picked["position"])
-    st.markdown(summary)
-
-st.markdown("<div class='sec-head'>Draft Insights</div>", unsafe_allow_html=True)
-
-
-def show_list(players, stat_label, stat_key):
-    for i, p in enumerate(players, start=1):
-        cols = st.columns([0.5, 3, 1.2, 2], vertical_alignment="center")
-        cols[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
-        cols[1].markdown(
-            f"<span style='color:#ffffff'>{p['name']}</span> "
-            f"<span class='rank-num'>{p['team']}</span>",
-            unsafe_allow_html=True,
-        )
-        cols[2].markdown(
-            badge(p["position"], p.get("tier", "")), unsafe_allow_html=True
-        )
-        cols[3].markdown(
-            f"<span class='mono'>{stat_label}: {p.get(stat_key)}</span>",
-            unsafe_allow_html=True,
-        )
-
-
-def caption(text):
-    st.markdown(
-        f"<div style='color:#9aa4b2;font-size:0.85rem;margin-bottom:6px'>{text}</div>",
-        unsafe_allow_html=True,
-    )
-
-
-t1, t2, t3, t4 = st.tabs(
-    ["💤 Sleepers", "🌟 Top Rookies", "💥 Boom / Ceiling", "🛡️ High Floor"]
-)
-with t1:
-    caption("Drafted later than their projected value — target these late.")
-    show_list(sleepers(board), "Value", "value_gap")
-with t2:
-    caption("Best first-year players by value over replacement.")
-    show_list(top_rookies(board), "VOR", "vor")
-with t3:
-    caption("Scoring leans on TDs and long plays — exciting but week-to-week volatile.")
-    show_list(boom_ceiling(board), "Boom", "boom_score")
-with t4:
-    caption("High projected touch volume — the safest weekly floor.")
-    show_list(high_floor(board), "Touches", "touches")
