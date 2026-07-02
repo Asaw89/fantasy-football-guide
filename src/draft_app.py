@@ -1,6 +1,7 @@
 import streamlit as st
 from collections import Counter
 from draft_board import build_board, NUM_TEAMS
+from categories import sleepers, top_rookies, boom_ceiling, high_floor
 
 st.set_page_config(page_title="Draft Command Center", page_icon="🏈", layout="wide")
 
@@ -220,3 +221,47 @@ if st.button("Get latest news", type="primary"):
     with st.spinner(f"Searching outlets for {picked['name']}..."):
         summary = cached_news(picked["name"], picked["team"], picked["position"])
     st.markdown(summary)
+
+st.markdown("<div class='sec-head'>Draft Insights</div>", unsafe_allow_html=True)
+
+
+def show_list(players, stat_label, stat_key):
+    for i, p in enumerate(players, start=1):
+        cols = st.columns([0.5, 3, 1.2, 2], vertical_alignment="center")
+        cols[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
+        cols[1].markdown(
+            f"<span style='color:#ffffff'>{p['name']}</span> "
+            f"<span class='rank-num'>{p['team']}</span>",
+            unsafe_allow_html=True,
+        )
+        cols[2].markdown(
+            badge(p["position"], p.get("tier", "")), unsafe_allow_html=True
+        )
+        cols[3].markdown(
+            f"<span class='mono'>{stat_label}: {p.get(stat_key)}</span>",
+            unsafe_allow_html=True,
+        )
+
+
+def caption(text):
+    st.markdown(
+        f"<div style='color:#9aa4b2;font-size:0.85rem;margin-bottom:6px'>{text}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+t1, t2, t3, t4 = st.tabs(
+    ["💤 Sleepers", "🌟 Top Rookies", "💥 Boom / Ceiling", "🛡️ High Floor"]
+)
+with t1:
+    caption("Drafted later than their projected value — target these late.")
+    show_list(sleepers(board), "Value", "value_gap")
+with t2:
+    caption("Best first-year players by value over replacement.")
+    show_list(top_rookies(board), "VOR", "vor")
+with t3:
+    caption("Scoring leans on TDs and long plays — exciting but week-to-week volatile.")
+    show_list(boom_ceiling(board), "Boom", "boom_score")
+with t4:
+    caption("High projected touch volume — the safest weekly floor.")
+    show_list(high_floor(board), "Touches", "touches")

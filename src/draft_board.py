@@ -40,8 +40,14 @@ def fetch_position(position):
                 "team": info.get("team") or "FA",
                 "points": round(points, 1),
                 "adp": stats.get("adp_ppr"),
+                "years_exp": info.get("years_exp"),
+                "touches": (stats.get("rush_att") or 0) + (stats.get("rec") or 0),
+                "tds": (stats.get("rush_td") or 0) + (stats.get("rec_td") or 0),
+                "big_plays": stats.get("rec_40p") or 0,
+                "receptions": stats.get("rec") or 0,
             }
         )
+
     # Best projected first
     players.sort(key=lambda p: p["points"], reverse=True)
     return players
