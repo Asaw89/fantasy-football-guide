@@ -1,5 +1,5 @@
 import os
-from anthropic import Anthropic
+from anthropic import Anthropic  # uses 2cents per pull
 from dotenv import load_dotenv
 
 load_dotenv()
