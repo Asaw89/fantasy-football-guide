@@ -24,6 +24,10 @@ st.markdown(
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 .stApp { background: radial-gradient(1200px 600px at 20% -10%, #14203a 0%, #0b0f17 55%, #080b11 100%); }
+/* White text only on the dark app background, not inside light widgets */
+.stApp > div, [data-testid="stMarkdownContainer"], [data-testid="stSidebar"] * { color: #ffffff; }
+/* Let form widgets (dropdown, its menu) keep their own dark text on light bg */
+[data-baseweb="select"] *, [role="listbox"] * { color: #1a1a1a !important; }
 html, body, [class*="css"] { font-family: 'Chakra Petch', sans-serif; }
 .cc-title { font-weight:700; font-size:2.1rem; letter-spacing:2px; text-transform:uppercase; color:#e6edf3; margin-bottom:0; }
 .cc-title .accent { color:#00e0a4; }
@@ -39,7 +43,8 @@ html, body, [class*="css"] { font-family: 'Chakra Petch', sans-serif; }
 .badge { padding:2px 9px; border-radius:6px; font-weight:600; font-size:0.78rem; font-family:'JetBrains Mono',monospace; }
 .mono { font-family:'JetBrains Mono',monospace; color:#c9d1d9; }
 .rank-num { font-family:'JetBrains Mono',monospace; color:#4d5866; }
-.stButton > button { border-radius:8px; border:1px solid #2a3a4f; font-family:'Chakra Petch',sans-serif; letter-spacing:1px; font-weight:600; transition:all .15s ease; }
+.stButton > button { border-radius:8px; border:1px solid #2a3a4f; font-family:'Chakra Petch',sans-serif; letter-spacing:1px; font-weight:600; transition:all .15s ease; background:#1a2230; color:#ffffff; }
+.stButton > button:hover { border-color:#00e0a4; box-shadow:0 0 12px rgba(0,224,164,0.25); }
 .stButton > button:hover { border-color:#00e0a4; box-shadow:0 0 12px rgba(0,224,164,0.25); }
 [data-testid="stSidebar"] { background:#0a0e15; border-right:1px solid #1a2230; }
 </style>
@@ -193,3 +198,25 @@ for i, p in enumerate(available[:TOP_N], start=1):
         args=(p, False),
         use_container_width=True,
     )
+
+# ================= Player News (AI) =================
+st.markdown("<div class='sec-head'>Player News · AI</div>", unsafe_allow_html=True)
+
+
+# Cache summaries for an hour so repeat lookups on the same player cost nothing
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_news(name, team, position):
+    from news import get_player_news
+
+    return get_player_news(name, team, position)
+
+
+# Build a dropdown of every player on the board, best value first
+news_options = {f"{p['name']} ({p['position']}, {p['team']})": p for p in board}
+choice = st.selectbox("Look up a player", options=list(news_options.keys()))
+
+if st.button("Get latest news", type="primary"):
+    picked = news_options[choice]
+    with st.spinner(f"Searching outlets for {picked['name']}..."):
+        summary = cached_news(picked["name"], picked["team"], picked["position"])
+    st.markdown(summary)
