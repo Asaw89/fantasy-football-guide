@@ -185,6 +185,63 @@ with st.sidebar:
 
 # ---- Board ----
 st.markdown("<div class='sec-head'>Best Available</div>", unsafe_allow_html=True)
+
+# ---- Position filter ----
+if "pos_filter" not in st.session_state:
+    st.session_state.pos_filter = "All"
+
+filters = ["All", "QB", "RB", "WR", "TE", "K", "DEF"]
+fcols = st.columns(len(filters))
+for col, pos in zip(fcols, filters):
+    # Highlight the active filter by making it the primary (green) button
+    btn_type = "primary" if st.session_state.pos_filter == pos else "secondary"
+    if col.button(pos, key=f"filter_{pos}", type=btn_type, use_container_width=True):
+        st.session_state.pos_filter = pos
+        st.rerun()
+
+# Apply the filter
+if st.session_state.pos_filter == "All":
+    shown = available
+else:
+    shown = [p for p in available if p["position"] == st.session_state.pos_filter]
+
+# Show a count so you know how many are left at that position
+st.markdown(
+    f"<div style='color:#9aa4b2;font-size:0.85rem;margin:6px 0'>"
+    f"Showing {min(len(shown), TOP_N)} of {len(shown)} available"
+    f"{'' if st.session_state.pos_filter == 'All' else ' ' + st.session_state.pos_filter}"
+    f"</div>",
+    unsafe_allow_html=True,
+)
+
+for i, p in enumerate(shown[:TOP_N], start=1):
+    key = player_key(p)
+    c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
+    c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)
+    c[1].markdown(
+        f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
+        f"<span class='rank-num'>{p['team']}</span>",
+        unsafe_allow_html=True,
+    )
+    c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
+    c[3].markdown(
+        f"<span class='mono'>{p['points']} / {p['vor']}</span>", unsafe_allow_html=True
+    )
+    c[4].button(
+        "Mine",
+        key=f"mine_{key}",
+        on_click=draft_player,
+        args=(p, True),
+        type="primary",
+        use_container_width=True,
+    )
+    c[5].button(
+        "Taken",
+        key=f"taken_{key}",
+        on_click=draft_player,
+        args=(p, False),
+        use_container_width=True,
+    )
 for i, p in enumerate(available[:TOP_N], start=1):
     key = player_key(p)
     c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
