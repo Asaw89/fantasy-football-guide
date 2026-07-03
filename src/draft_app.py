@@ -25,9 +25,7 @@ st.markdown(
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 .stApp { background: radial-gradient(1200px 600px at 20% -10%, #14203a 0%, #0b0f17 55%, #080b11 100%); }
-/* White text only on the dark app background, not inside light widgets */
 .stApp > div, [data-testid="stMarkdownContainer"], [data-testid="stSidebar"] * { color: #ffffff; }
-/* Let form widgets (dropdown, its menu) keep their own dark text on light bg */
 [data-baseweb="select"] *, [role="listbox"] * { color: #1a1a1a !important; }
 html, body, [class*="css"] { font-family: 'Chakra Petch', sans-serif; }
 .cc-title { font-weight:700; font-size:2.1rem; letter-spacing:2px; text-transform:uppercase; color:#e6edf3; margin-bottom:0; }
@@ -46,7 +44,6 @@ html, body, [class*="css"] { font-family: 'Chakra Petch', sans-serif; }
 .rank-num { font-family:'JetBrains Mono',monospace; color:#4d5866; }
 .stButton > button { border-radius:8px; border:1px solid #2a3a4f; font-family:'Chakra Petch',sans-serif; letter-spacing:1px; font-weight:600; transition:all .15s ease; background:#1a2230; color:#ffffff; }
 .stButton > button:hover { border-color:#00e0a4; box-shadow:0 0 12px rgba(0,224,164,0.25); }
-.stButton > button:hover { border-color:#00e0a4; box-shadow:0 0 12px rgba(0,224,164,0.25); }
 [data-testid="stSidebar"] { background:#0a0e15; border-right:1px solid #1a2230; }
 </style>
 """,
@@ -60,8 +57,15 @@ def badge(pos, tier=""):
 
 
 @st.cache_data(show_spinner="Loading projections from Sleeper...")
-def load_board():
-    return build_board()
+def load_board(scoring):
+    return build_board(scoring)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_news(name, team, position):
+    from news import get_player_news
+
+    return get_player_news(name, team, position)
 
 
 def player_key(p):
@@ -85,7 +89,20 @@ def reset_draft():
     st.session_state.my_roster = []
 
 
-board = load_board()
+# ---- Scoring toggle + board load ----
+SCORING_LABELS = {"PPR": "pts_ppr", "Half-PPR": "pts_half_ppr", "Standard": "pts_std"}
+if "scoring" not in st.session_state:
+    st.session_state.scoring = "PPR"
+
+score_choice = st.radio(
+    "League scoring",
+    options=list(SCORING_LABELS.keys()),
+    horizontal=True,
+    key="scoring",
+)
+board = load_board(SCORING_LABELS[score_choice])
+board = list({player_key(x): x for x in board}.values())  # de-duplicate
+
 my_roster = st.session_state.my_roster
 available = [p for p in board if player_key(p) not in st.session_state.drafted]
 available.sort(key=lambda p: p["vor"], reverse=True)
@@ -124,16 +141,7 @@ m3.markdown(stat_card("Your Roster", len(my_roster)), unsafe_allow_html=True)
 
 
 # ---- Sidebar ----
-# Cache AI news for an hour so repeat lookups on the same player are free
-@st.cache_data(ttl=3600, show_spinner=False)
-def cached_news(name, team, position):
-    from news import get_player_news
-
-    return get_player_news(name, team, position)
-
-
 with st.sidebar:
-    # ---- Player Search (top: the tool you reach for most) ----
     st.markdown("<div class='sec-head'>Player Search</div>", unsafe_allow_html=True)
     news_options = {f"{p['name']} · {p['position']} {p['team']}": p for p in board}
     choice = st.selectbox(
@@ -149,11 +157,13 @@ with st.sidebar:
 
     if st.session_state.get("news_summary"):
         st.markdown(f"**{st.session_state.news_player}**")
-        st.markdown(st.session_state.news_summary)
+        st.markdown(
+            f"<div style='color:#ffffff;'>{st.session_state.news_summary}</div>",
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
-    # ---- My Roster ----
     st.markdown("<div class='sec-head'>My Roster</div>", unsafe_allow_html=True)
     if my_roster:
         for p in my_roster:
@@ -167,7 +177,6 @@ with st.sidebar:
             "<span class='rank-num'>No picks yet</span>", unsafe_allow_html=True
         )
 
-    # ---- Still Need ----
     st.markdown("<div class='sec-head'>Still Need</div>", unsafe_allow_html=True)
     need_labels = [f"{pos} x{n}" for pos, n in needs.items() if n > 0]
     st.markdown(
@@ -183,29 +192,41 @@ with st.sidebar:
     st.divider()
     st.button("Reset draft", on_click=reset_draft, use_container_width=True)
 
+
+# ---- Recommendation ----
+if available:
+    pick = max(available, key=adjusted_score)
+    fills = needs.get(pick["position"], 0) > 0
+    reason = (
+        f"fills a need at {pick['position']}" if fills else "best value on the board"
+    )
+    st.markdown(
+        f"<div class='rec-panel'><div class='rec-label'>Recommended Pick</div>"
+        f"<div class='rec-name'>{pick['name']} &nbsp; {badge(pick['position'], pick.get('tier', ''))}</div>"
+        f"<div class='rec-meta'>{reason} · PROJ {pick['points']} · VOR {pick['vor']}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 # ---- Board ----
 st.markdown("<div class='sec-head'>Best Available</div>", unsafe_allow_html=True)
 
-# ---- Position filter ----
 if "pos_filter" not in st.session_state:
     st.session_state.pos_filter = "All"
 
 filters = ["All", "QB", "RB", "WR", "TE", "K", "DEF"]
 fcols = st.columns(len(filters))
 for col, pos in zip(fcols, filters):
-    # Highlight the active filter by making it the primary (green) button
     btn_type = "primary" if st.session_state.pos_filter == pos else "secondary"
     if col.button(pos, key=f"filter_{pos}", type=btn_type, use_container_width=True):
         st.session_state.pos_filter = pos
         st.rerun()
 
-# Apply the filter
 if st.session_state.pos_filter == "All":
     shown = available
 else:
     shown = [p for p in available if p["position"] == st.session_state.pos_filter]
 
-# Show a count so you know how many are left at that position
 st.markdown(
     f"<div style='color:#9aa4b2;font-size:0.85rem;margin:6px 0'>"
     f"Showing {min(len(shown), TOP_N)} of {len(shown)} available"
@@ -229,7 +250,7 @@ for i, p in enumerate(shown[:TOP_N], start=1):
     )
     c[4].button(
         "Mine",
-        key=f"mine_{key}",
+        key=f"mine_{i}_{key}",
         on_click=draft_player,
         args=(p, True),
         type="primary",
@@ -237,47 +258,54 @@ for i, p in enumerate(shown[:TOP_N], start=1):
     )
     c[5].button(
         "Taken",
-        key=f"taken_{key}",
+        key=f"taken_{i}_{key}",
         on_click=draft_player,
         args=(p, False),
         use_container_width=True,
     )
-for i, p in enumerate(available[:TOP_N], start=1):
-    key = player_key(p)
-    c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
-    c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)
-    c[1].markdown(
-        f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
-        f"<span class='rank-num'>{p['team']}</span>",
+
+
+# ---- Draft Insights ----
+st.markdown("<div class='sec-head'>Draft Insights</div>", unsafe_allow_html=True)
+
+
+def show_list(players, stat_label, stat_key):
+    for i, p in enumerate(players, start=1):
+        cols = st.columns([0.5, 3, 1.2, 2], vertical_alignment="center")
+        cols[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
+        cols[1].markdown(
+            f"<span style='color:#ffffff'>{p['name']}</span> "
+            f"<span class='rank-num'>{p['team']}</span>",
+            unsafe_allow_html=True,
+        )
+        cols[2].markdown(
+            badge(p["position"], p.get("tier", "")), unsafe_allow_html=True
+        )
+        cols[3].markdown(
+            f"<span class='mono'>{stat_label}: {p.get(stat_key)}</span>",
+            unsafe_allow_html=True,
+        )
+
+
+def caption(text):
+    st.markdown(
+        f"<div style='color:#9aa4b2;font-size:0.85rem;margin-bottom:6px'>{text}</div>",
         unsafe_allow_html=True,
     )
-    c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
-    c[3].markdown(
-        f"<span class='mono'>{p['points']} / {p['vor']}</span>", unsafe_allow_html=True
-    )
-    c[4].button(
-        "Mine",
-        key=f"mine_{key}",
-        on_click=draft_player,
-        args=(p, True),
-        type="primary",
-        use_container_width=True,
-    )
-    c[5].button(
-        "Taken",
-        key=f"taken_{key}",
-        on_click=draft_player,
-        args=(p, False),
-        use_container_width=True,
-    )
-
-# ================= Player News (AI) =================
-st.markdown("<div class='sec-head'>Player News · AI</div>", unsafe_allow_html=True)
 
 
-# Cache summaries for an hour so repeat lookups on the same player cost nothing
-@st.cache_data(ttl=3600, show_spinner=False)
-def cached_news(name, team, position):
-    from news import get_player_news
-
-    return get_player_news(name, team, position)
+t1, t2, t3, t4 = st.tabs(
+    ["💤 Sleepers", "🌟 Top Rookies", "💥 Boom / Ceiling", "🛡️ High Floor"]
+)
+with t1:
+    caption("Drafted later than their projected value — target these late.")
+    show_list(sleepers(board), "Value", "value_gap")
+with t2:
+    caption("Best first-year players by value over replacement.")
+    show_list(top_rookies(board), "VOR", "vor")
+with t3:
+    caption("Scoring leans on TDs and long plays — exciting but week-to-week volatile.")
+    show_list(boom_ceiling(board), "Boom", "boom_score")
+with t4:
+    caption("High projected touch volume — the safest weekly floor.")
+    show_list(high_floor(board), "Touches", "touches")
