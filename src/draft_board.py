@@ -19,17 +19,17 @@ REPLACEMENT_RANK = {
 MIN_POINTS = 1.0  # drop inactive/depth players with negligible projections
 
 
-def fetch_position(position):
+def fetch_position(position, scoring="pts_ppr"):
     """Get all projected players for one position from Sleeper."""
     url = f"https://api.sleeper.com/projections/nfl/{SEASON}"
-    params = {"season_type": "regular", "position[]": position, "order_by": SCORING}
+    params = {"season_type": "regular", "position[]": position, "order_by": scoring}
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
 
     players = []
     for rec in resp.json():
         stats = rec.get("stats") or {}
-        points = stats.get(SCORING)
+        points = stats.get(scoring)
         info = rec.get("player") or {}
         if points is None or points < MIN_POINTS:
             continue
@@ -44,7 +44,7 @@ def fetch_position(position):
                 "name": f"{info.get('first_name', '')} {info.get('last_name', '')}".strip(),
                 "position": position,
                 "team": info.get("team") or "FA",
-                "points": round(points, 1),
+                "points": stats.get(scoring),
                 "adp": stats.get("adp_ppr"),
                 "years_exp": info.get("years_exp"),
                 "touches": (stats.get("rush_att") or 0) + (stats.get("rec") or 0),
@@ -80,10 +80,10 @@ def assign_tiers(players, gap=15.0):
     return players
 
 
-def build_board():
+def build_board(scoring="pts_ppr"):
     board = []
     for pos in POSITIONS:
-        players = fetch_position(pos)
+        players = fetch_position(pos, scoring)
         players = add_value_over_replacement(players, pos)
         players = assign_tiers(players)
         board.extend(players)
