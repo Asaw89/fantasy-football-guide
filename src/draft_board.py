@@ -1,5 +1,7 @@
 import requests
 
+_bye_cache = None
+
 SEASON = "2026"  # switch to "2026" once projections populate
 SCORING = "pts_ppr"  # "pts_ppr", "pts_half_ppr", or "pts_std" to match your league
 NUM_TEAMS = 10
@@ -96,6 +98,10 @@ def build_board(scoring="pts_ppr", num_teams=12):
         players = assign_tiers(players)
         board.extend(players)
 
+    byes = get_bye_weeks()
+    for p in board:
+        p["bye"] = byes.get(p["team"])
+
     board.sort(key=lambda p: p["vor"], reverse=True)
 
     global_tier = 1
@@ -119,3 +125,37 @@ if __name__ == "__main__":
             f"{i:>3}  {p['name']:24} {p['position']:4} {p['team']:4} "
             f"{p['points']:>6} {p['vor']:>6} {tier_label:>4}"
         )
+
+
+def get_bye_weeks(season=2026):
+    """Return {team: bye_week} by finding which week each team has no game."""
+    global _bye_cache
+    if _bye_cache is not None:
+        return _bye_cache
+
+    url = f"https://api.sleeper.app/schedule/nfl/regular/{season}"
+    games = requests.get(url, timeout=30).json()
+
+    # Collect the set of weeks each team plays
+    weeks_played = {}
+    all_weeks = set()
+    for g in games:
+        wk = g.get("week")
+        if wk is None:
+            continue
+        all_weeks.add(wk)
+        for side in ("home", "away"):
+            team = g.get(side)
+            if team:
+                weeks_played.setdefault(team, set()).add(wk)
+
+    # A team's bye is the regular-season week they don't appear
+    regular_weeks = {w for w in all_weeks if w <= 18}
+    byes = {}
+    for team, played in weeks_played.items():
+        missing = regular_weeks - played
+        if missing:
+            byes[team] = min(missing)  # the earliest (usually only) missing week
+
+    _bye_cache = byes
+    return byes

@@ -3,6 +3,7 @@ from collections import Counter
 from draft_board import build_board, NUM_TEAMS
 from categories import sleepers, top_rookies, boom_ceiling, high_floor
 from grader import grade_draft
+from collections import Counter as _C
 
 st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout="wide")
 
@@ -195,6 +196,19 @@ with st.sidebar:
                 "<span class='rank-num'>No picks yet</span>", unsafe_allow_html=True
             )
 
+        # Bye week collision check
+        bye_counts = _C(p.get("bye") for p in my_roster if p.get("bye"))
+        heavy_byes = {wk: n for wk, n in bye_counts.items() if n >= 3}
+        if heavy_byes:
+            st.markdown(
+                "<div class='sec-head'>⚠️ Bye Stacking</div>", unsafe_allow_html=True
+            )
+            for wk, n in sorted(heavy_byes.items()):
+                st.markdown(
+                    f"<span style='color:#fb923c'>Week {wk}: {n} players on bye</span>",
+                    unsafe_allow_html=True,
+                )
+
         st.markdown("<div class='sec-head'>Still Need</div>", unsafe_allow_html=True)
         need_labels = [f"{pos} x{n}" for pos, n in needs.items() if n > 0]
         st.markdown(
@@ -329,8 +343,9 @@ if mode == "🏈 Draft":
             unsafe_allow_html=True,
         )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
+        bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
         c[3].markdown(
-            f"<span class='mono'>{p['points']} / {p['vor']}</span>",
+            f"<span class='mono'>{p['points']} / {p['vor']}<span class='rank-num'>{bye_txt}</span></span>",
             unsafe_allow_html=True,
         )
         c[4].button(
