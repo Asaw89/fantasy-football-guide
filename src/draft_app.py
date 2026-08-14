@@ -2,6 +2,7 @@ import streamlit as st
 from collections import Counter
 from draft_board import build_board, NUM_TEAMS
 from categories import sleepers, top_rookies, boom_ceiling, high_floor
+from grader import grade_draft
 
 st.set_page_config(page_title="Draft Command Center", page_icon="🏈", layout="wide")
 
@@ -360,3 +361,44 @@ with t3:
 with t4:
     caption("High projected touch volume — the safest weekly floor.")
     show_list(high_floor(board), "Touches", "touches")
+
+# ---- Draft Grade ----
+st.markdown("<div class='sec-head'>Draft Grade</div>", unsafe_allow_html=True)
+
+grade = grade_draft(my_roster, STARTERS, BENCH_SPOTS)
+
+if grade is None:
+    st.markdown(
+        "<span class='rank-num'>Draft some players (mark them \"Mine\") to see your grade.</span>",
+        unsafe_allow_html=True,
+    )
+else:
+    grade_colors = {
+        "A": "#34d399",
+        "B": "#38bdf8",
+        "C": "#fbbf24",
+        "D": "#fb923c",
+        "F": "#f87171",
+    }
+    color = grade_colors.get(grade["letter"], "#94a3b8")
+
+    g1, g2 = st.columns([1, 3], vertical_alignment="center")
+    g1.markdown(
+        f"<div style='font-size:3.5rem;font-weight:700;color:{color};"
+        f"font-family:JetBrains Mono,monospace;text-align:center'>{grade['letter']}</div>"
+        f"<div style='text-align:center;color:#9aa4b2;font-size:0.8rem'>{grade['score']}/100</div>",
+        unsafe_allow_html=True,
+    )
+
+    details = (
+        f"<span style='color:#ffffff'>Total value (VOR): <b>{grade['total_vor']}</b></span> &nbsp;·&nbsp; "
+        f"<span style='color:#ffffff'>Avg per pick: <b>{grade['avg_vor']}</b></span><br>"
+        f"<span style='color:#ffffff'>Starting slots filled: "
+        f"<b>{grade['slots_filled']}/{grade['slots_total']}</b></span>"
+    )
+    if grade["missing"]:
+        details += (
+            f"<br><span style='color:#fb923c'>Still missing starters: "
+            f"{', '.join(grade['missing'])}</span>"
+        )
+    g2.markdown(f"<div style='line-height:1.7'>{details}</div>", unsafe_allow_html=True)

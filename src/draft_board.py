@@ -1,6 +1,6 @@
 import requests
 
-SEASON = "2025"  # switch to "2026" once projections populate
+SEASON = "2026"  # switch to "2026" once projections populate
 SCORING = "pts_ppr"  # "pts_ppr", "pts_half_ppr", or "pts_std" to match your league
 NUM_TEAMS = 10
 POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"]

@@ -27,5 +27,24 @@ def get_player_news(name, team, position):
     return "\n".join(text_parts).strip()
 
 
+def ask_question(question):
+    """Answer an open fantasy football question in an energetic analyst style."""
+    prompt = (
+        f"You're a sharp, energetic fantasy football analyst with a lively "
+        f"podcast-style voice — confident, fun, and opinionated, but grounded in "
+        f"real reasoning. Answer this fantasy football question in 3-5 sentences "
+        f"with a clear take. Search the web if you need current information.\n\n"
+        f"Question: {question}"
+    )
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+    )
+    text_parts = [block.text for block in response.content if block.type == "text"]
+    return "\n".join(text_parts).strip()
+
+
 if __name__ == "__main__":
     print(get_player_news("Christian McCaffrey", "SF", "RB"))
