@@ -61,6 +61,18 @@ def badge(pos, tier=""):
     return f"<span class='badge' style='background:{c}22;color:{c};border:1px solid {c}55;'>{pos}{tier}</span>"
 
 
+def sleeper_photo(player_id):
+    if not player_id:
+        return None
+    return f"https://sleepercdn.com/content/nfl/players/{player_id}.jpg"
+
+
+def espn_photo(player_id):
+    if not player_id:
+        return None
+    return f"https://a.espncdn.com/i/headshots/nfl/players/full/{player_id}.png"
+
+
 @st.cache_data(show_spinner="Loading projections from Sleeper...")
 def load_board(scoring, num_teams):
     return build_board(scoring, num_teams)
@@ -152,7 +164,7 @@ with st.sidebar:
             st.session_state.news_summary = cached_news(
                 picked["name"], picked["team"], picked["position"]
             )
-            st.session_state.news_player = picked["name"]
+            st.session_state.news_photo = sleeper_photo(picked.get("player_id"))
 
     # ---- Ask the Analyst (both modes) ----
     st.markdown("<div class='sec-head'>Ask the Analyst</div>", unsafe_allow_html=True)
@@ -174,7 +186,9 @@ with st.sidebar:
         )
 
     if st.session_state.get("news_summary"):
-        st.markdown(f"**{st.session_state.news_player}**")
+        if st.session_state.get("news_photo"):
+            st.image(st.session_state.news_photo, width=70)
+        st.markdown(f"**{st.session_state.get('news_player', '')}**")
         st.markdown(
             f"<div style='color:#ffffff;'>{st.session_state.news_summary}</div>",
             unsafe_allow_html=True,
@@ -283,7 +297,11 @@ if mode == "🏈 Draft":
             if fills
             else "best value on the board"
         )
-        st.markdown(
+        photo = sleeper_photo(pick.get("player_id"))
+        rc1, rc2 = st.columns([1, 6], vertical_alignment="center")
+        if photo:
+            rc1.image(photo, width=80)
+        rc2.markdown(
             f"<div class='rec-panel'><div class='rec-label'>Recommended Pick</div>"
             f"<div class='rec-name'>{pick['name']} &nbsp; {badge(pick['position'], pick.get('tier', ''))}</div>"
             f"<div class='rec-meta'>{reason} · PROJ {pick['points']} · VOR {pick['vor']}</div></div>",
@@ -466,14 +484,17 @@ if mode == "📅 In-Season":
 
     if st.session_state.get("waivers"):
         for i, t in enumerate(st.session_state.waivers[:25], start=1):
-            c = st.columns([0.5, 3, 1.3, 1.6, 1.4], vertical_alignment="center")
+            c = st.columns([0.4, 0.7, 3, 1.3, 1.6, 1.4], vertical_alignment="center")
             c[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
+            photo = espn_photo(t.get("player_id"))
+            if photo:
+                c[1].image(photo, width=45)
             name_html = f"<span style='color:#ffffff;font-weight:600;'>{t['name']}</span> <span class='rank-num'>{t['team']}</span>"
             if t["status"] != "ACTIVE":
                 name_html += f" <span style='color:#fb923c;font-size:0.75rem'>⚠️ {t['status']}</span>"
-            c[1].markdown(name_html, unsafe_allow_html=True)
-            c[2].markdown(badge(t["position"]), unsafe_allow_html=True)
-            c[3].markdown(
+            c[2].markdown(name_html, unsafe_allow_html=True)
+            c[3].markdown(badge(t["position"]), unsafe_allow_html=True)
+            c[4].markdown(
                 f"<span class='mono'>proj {t['proj']}</span>", unsafe_allow_html=True
             )
             need = (
@@ -481,7 +502,7 @@ if mode == "📅 In-Season":
                 if t["fills_need"]
                 else ""
             )
-            c[4].markdown(need, unsafe_allow_html=True)
+            c[5].markdown(need, unsafe_allow_html=True)
 
     # ---- Start/Sit (coming after your draft) ----
     st.markdown("<div class='sec-head'>Start / Sit</div>", unsafe_allow_html=True)

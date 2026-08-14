@@ -45,6 +45,7 @@ def fetch_position(position, scoring="pts_ppr"):
             {
                 "name": f"{info.get('first_name', '')} {info.get('last_name', '')}".strip(),
                 "position": position,
+                "player_id": rec.get("player_id"),
                 "team": info.get("team") or "FA",
                 "points": stats.get(scoring),
                 "adp": stats.get("adp_ppr"),
