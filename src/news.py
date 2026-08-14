@@ -7,7 +7,7 @@ client = Anthropic()  # reads ANTHROPIC_API_KEY from the environment automatical
 
 
 def get_player_news(name, team, position):
-    """Search fantasy outlets and return a short, fantasy-focused summary."""
+    """Search fantasy outlets and return a summary plus its source links."""
     prompt = (
         f"Search for the latest fantasy football news on {name}, "
         f"{position} for {team}. In 2-3 sentences, summarize the most important "
@@ -23,8 +23,21 @@ def get_player_news(name, team, position):
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
     )
 
+    # Pull the summary text
     text_parts = [block.text for block in response.content if block.type == "text"]
-    return "\n".join(text_parts).strip()
+    summary = "\n".join(text_parts).strip()
+
+    # Pull the source links from citations on the text blocks
+    sources = {}
+    for block in response.content:
+        if block.type == "text" and getattr(block, "citations", None):
+            for cite in block.citations:
+                url = getattr(cite, "url", None)
+                title = getattr(cite, "title", None) or url
+                if url:
+                    sources[url] = title  # dict dedupes repeated URLs
+
+    return {"summary": summary, "sources": sources}
 
 
 def ask_question(question):

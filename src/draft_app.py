@@ -117,7 +117,7 @@ if "my_roster" not in st.session_state:
 if "scoring" not in st.session_state:
     st.session_state.scoring = "PPR"
 if "league_size" not in st.session_state:
-    st.session_state.league_size = 12
+    st.session_state.league_size = 10
 if "pos_filter" not in st.session_state:
     st.session_state.pos_filter = "All"
 
@@ -161,9 +161,10 @@ with st.sidebar:
     if st.button("Get news", type="primary", use_container_width=True):
         picked = news_options[choice]
         with st.spinner(f"Searching outlets for {picked['name']}..."):
-            st.session_state.news_summary = cached_news(
-                picked["name"], picked["team"], picked["position"]
-            )
+            result = cached_news(picked["name"], picked["team"], picked["position"])
+            st.session_state.news_summary = result["summary"]
+            st.session_state.news_sources = result["sources"]
+            st.session_state.news_player = picked["name"]
             st.session_state.news_photo = sleeper_photo(picked.get("player_id"))
 
     # ---- Ask the Analyst (both modes) ----
@@ -193,6 +194,20 @@ with st.sidebar:
             f"<div style='color:#ffffff;'>{st.session_state.news_summary}</div>",
             unsafe_allow_html=True,
         )
+        sources = st.session_state.get("news_sources", {})
+        if sources:
+            st.markdown(
+                "<div style='color:#7d8590;font-size:0.7rem;margin-top:8px;"
+                "text-transform:uppercase;letter-spacing:1px'>Sources</div>",
+                unsafe_allow_html=True,
+            )
+            for url, title in sources.items():
+                short = title[:45] + "…" if len(title) > 45 else title
+                st.markdown(
+                    f"<a href='{url}' target='_blank' "
+                    f"style='color:#38bdf8;font-size:0.78rem'>{short}</a>",
+                    unsafe_allow_html=True,
+                )
 
     # ---- Draft-only sidebar sections ----
     if mode == "🏈 Draft":
