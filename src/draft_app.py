@@ -7,6 +7,7 @@ st.set_page_config(page_title="Draft Command Center", page_icon="🏈", layout="
 
 # ---- Config ----
 STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
+BENCH_SPOTS = 7
 NEED_BONUS = 20.0
 TOP_N = 30
 
@@ -26,7 +27,8 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 .stApp { background: radial-gradient(1200px 600px at 20% -10%, #14203a 0%, #0b0f17 55%, #080b11 100%); }
 .stApp > div, [data-testid="stMarkdownContainer"], [data-testid="stSidebar"] * { color: #ffffff; }
-[data-baseweb="select"] *, [role="listbox"] * { color: #1a1a1a !important; }
+[data-baseweb="select"] *, [role="listbox"] *, .stTextInput input { color: #1a1a1a !important; }
+header[data-testid="stHeader"] { background: transparent; }
 html, body, [class*="css"] { font-family: 'Chakra Petch', sans-serif; }
 .cc-title { font-weight:700; font-size:2.1rem; letter-spacing:2px; text-transform:uppercase; color:#e6edf3; margin-bottom:0; }
 .cc-title .accent { color:#00e0a4; }
@@ -57,8 +59,8 @@ def badge(pos, tier=""):
 
 
 @st.cache_data(show_spinner="Loading projections from Sleeper...")
-def load_board(scoring):
-    return build_board(scoring)
+def load_board(scoring, num_teams):
+    return build_board(scoring, num_teams)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -100,7 +102,10 @@ score_choice = st.radio(
     horizontal=True,
     key="scoring",
 )
-board = load_board(SCORING_LABELS[score_choice])
+league_size = st.radio(
+    "League size", options=[8, 10, 12, 14], index=2, horizontal=True, key="league_size"
+)
+board = load_board(SCORING_LABELS[score_choice], league_size)
 board = list({player_key(x): x for x in board}.values())  # de-duplicate
 
 my_roster = st.session_state.my_roster
@@ -124,8 +129,8 @@ st.markdown(
 )
 
 picks_made = len(st.session_state.drafted)
-round_num = picks_made // NUM_TEAMS + 1
-pick_in_round = picks_made % NUM_TEAMS + 1
+round_num = picks_made // league_size + 1
+pick_in_round = picks_made % league_size + 1
 
 
 def stat_card(label, value):
@@ -154,6 +159,24 @@ with st.sidebar:
                 picked["name"], picked["team"], picked["position"]
             )
             st.session_state.news_player = picked["name"]
+    # ---- Ask the Analyst ----
+    st.markdown("<div class='sec-head'>Ask the Analyst</div>", unsafe_allow_html=True)
+    user_q = st.text_input(
+        "Ask a fantasy question",
+        label_visibility="collapsed",
+        placeholder="e.g. Should I draft a QB early this year?",
+    )
+    if st.button("Ask", use_container_width=True) and user_q:
+        from news import ask_question
+
+        with st.spinner("Thinking..."):
+            st.session_state.answer = ask_question(user_q)
+
+    if st.session_state.get("answer"):
+        st.markdown(
+            f"<div style='color:#ffffff;'>{st.session_state.answer}</div>",
+            unsafe_allow_html=True,
+        )
 
     if st.session_state.get("news_summary"):
         st.markdown(f"**{st.session_state.news_player}**")
@@ -186,6 +209,15 @@ with st.sidebar:
         )
         if need_labels
         else "<span class='mono' style='color:#34d399'>Starters filled ✓</span>",
+        unsafe_allow_html=True,
+    )
+    # Bench tracking
+    starters_needed = sum(needs.values())
+    total_starters = sum(STARTERS.values())
+    bench_filled = max(0, len(my_roster) - (total_starters - starters_needed))
+    st.markdown(
+        f"<div class='sec-head'>Bench</div>"
+        f"<span class='mono'>{bench_filled} / {BENCH_SPOTS} filled</span>",
         unsafe_allow_html=True,
     )
 
@@ -235,7 +267,26 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+last_tier = None
 for i, p in enumerate(shown[:TOP_N], start=1):
+    # Decide which tier to group by: position tier when filtered, global when "All"
+    if st.session_state.pos_filter == "All":
+        this_tier = p.get("global_tier")
+        tier_label = f"Tier {this_tier}"
+    else:
+        this_tier = p.get("tier")
+        tier_label = f"{st.session_state.pos_filter} · Tier {this_tier}"
+
+    # Insert a divider header whenever the tier changes
+    if this_tier != last_tier:
+        st.markdown(
+            f"<div style='color:#00e0a4;font-size:0.72rem;letter-spacing:2px;"
+            f"text-transform:uppercase;border-bottom:1px solid #1f2a3a;"
+            f"margin:10px 0 4px;padding-bottom:4px;'>{tier_label}</div>",
+            unsafe_allow_html=True,
+        )
+        last_tier = this_tier
+
     key = player_key(p)
     c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
     c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)

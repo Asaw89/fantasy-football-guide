@@ -2,18 +2,18 @@ import requests
 
 SEASON = "2025"  # switch to "2026" once projections populate
 SCORING = "pts_ppr"  # "pts_ppr", "pts_half_ppr", or "pts_std" to match your league
-NUM_TEAMS = 12
+NUM_TEAMS = 10
 POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"]
 
 # Roughly how many of each position get started across the whole league.
 # This sets each position's "replacement level."
-REPLACEMENT_RANK = {
-    "QB": NUM_TEAMS * 1,  # 12
-    "RB": NUM_TEAMS * 2 + 6,  # ~30 (2 starters + flex share)
-    "WR": NUM_TEAMS * 2 + 6,  # ~30
-    "TE": NUM_TEAMS * 1,  # 12
-    "K": NUM_TEAMS * 1,  # 12
-    "DEF": NUM_TEAMS * 1,  # 12
+Rreplacement_rank = {
+    "QB": NUM_TEAMS * 1,
+    "RB": NUM_TEAMS * 2 + 6,
+    "WR": NUM_TEAMS * 2 + 6,
+    "TE": NUM_TEAMS * 1,
+    "K": NUM_TEAMS * 1,
+    "DEF": NUM_TEAMS * 1,
 }
 
 MIN_POINTS = 1.0  # drop inactive/depth players with negligible projections
@@ -59,9 +59,8 @@ def fetch_position(position, scoring="pts_ppr"):
     return players
 
 
-def add_value_over_replacement(players, position):
-    """VOR = player's points minus the replacement-level player's points."""
-    rank = REPLACEMENT_RANK[position]
+def add_value_over_replacement(players, position, replacement_rank):
+    rank = replacement_rank[position]
     # If fewer players than the rank, use the last one as replacement
     idx = min(rank, len(players)) - 1
     replacement_points = players[idx]["points"] if players else 0
@@ -80,15 +79,30 @@ def assign_tiers(players, gap=15.0):
     return players
 
 
-def build_board(scoring="pts_ppr"):
+def build_board(scoring="pts_ppr", num_teams=12):
+    replacement_rank = {
+        "QB": num_teams * 1,
+        "RB": num_teams * 2 + 6,
+        "WR": num_teams * 2 + 6,
+        "TE": num_teams * 1,
+        "K": num_teams * 1,
+        "DEF": num_teams * 1,
+    }
+
     board = []
     for pos in POSITIONS:
         players = fetch_position(pos, scoring)
-        players = add_value_over_replacement(players, pos)
+        players = add_value_over_replacement(players, pos, replacement_rank)
         players = assign_tiers(players)
         board.extend(players)
-    # Overall board is ranked by value over replacement, across all positions
+
     board.sort(key=lambda p: p["vor"], reverse=True)
+
+    global_tier = 1
+    for i, p in enumerate(board):
+        if i > 0 and (board[i - 1]["vor"] - p["vor"]) > 12:
+            global_tier += 1
+        p["global_tier"] = global_tier
     return board
 
 
