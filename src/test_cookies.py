@@ -14,3 +14,6 @@ r = requests.get(
 )
 print("Status code:", r.status_code)
 print(r.text[:300])
+print("ESPN_S2 length:", len(os.getenv("ESPN_S2") or ""))
+print("SWID:", os.getenv("SWID"))
+print("LEAGUE_ID:", os.getenv("LEAGUE_ID"))
