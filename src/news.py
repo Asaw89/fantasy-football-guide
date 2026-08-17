@@ -40,30 +40,54 @@ def get_player_news(name, team, position):
     return {"summary": summary, "sources": sources}
 
 
-def ask_question(question, league_size=10, scoring="PPR", my_roster=None, taken=None):
-    """Answer a fantasy question, aware of the user's draft situation."""
+def ask_question(
+    question,
+    league_size=10,
+    scoring="PPR",
+    my_roster=None,
+    taken=None,
+    round_num=None,
+    pick_in_round=None,
+):
+    """Answer a fantasy question with real draft-strategy reasoning."""
+    from collections import Counter
+
+    # Summarize roster construction by position
     roster_text = "nobody yet"
+    pos_counts = {}
     if my_roster:
+        pos_counts = dict(Counter(p["position"] for p in my_roster))
         roster_text = ", ".join(f"{p['name']} ({p['position']})" for p in my_roster)
 
-    taken_text = ""
-    if taken:
-        # Just the count and a sample — the full list can be long
-        taken_text = f" So far {len(taken)} players have been drafted overall. "
+    construction = ", ".join(f"{n} {pos}" for pos, n in pos_counts.items()) or "empty"
+
+    where = ""
+    if round_num and pick_in_round:
+        where = f"You are at Round {round_num}, Pick {pick_in_round}. "
+
+    picks_gone = f"{len(taken)} players have been drafted overall. " if taken else ""
 
     prompt = (
-        f"You're a sharp, energetic fantasy football analyst with a lively "
-        f"podcast-style voice — confident, fun, opinionated, but grounded in real "
-        f"reasoning. The person is drafting in a {league_size}-team {scoring} league. "
-        f"Their current roster is: {roster_text}.{taken_text}"
-        f"Give advice tailored to their roster and format — what positions they still "
-        f"need, who to target. Answer in 3-5 sentences with a clear take. "
-        f"Search the web if you need current information.\n\n"
+        f"You're a sharp, energetic fantasy draft analyst — confident, opinionated, "
+        f"but grounded in real strategy. Setting: a {league_size}-team {scoring} draft.\n\n"
+        f"DRAFT SITUATION:\n"
+        f"- {where}{picks_gone}\n"
+        f"- The person's roster so far: {roster_text}\n"
+        f"- Positional construction: {construction}\n\n"
+        f"Use real draft-strategy frameworks in your reasoning and name them when "
+        f"relevant: Zero RB (load WRs early, running backs late), Hero RB (one elite "
+        f"RB then hammer WR), Robust RB (RBs early), late-round QB, and streaming/"
+        f"early TE approaches. Consider positional scarcity, roster balance, what's "
+        f"likely to fall to their next pick, and value at {scoring} scoring. "
+        f"Given their current construction and draft position, tell them which "
+        f"position to prioritize NOW and why — with a clear, decisive take. "
+        f"If they should wait on a position (like QB or TE), say so and explain. "
+        f"Answer in 4-6 sentences. Search the web only if you need current player info.\n\n"
         f"Question: {question}"
     )
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=500,
+        max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
     )

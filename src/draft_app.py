@@ -177,13 +177,17 @@ with st.sidebar:
     if st.button("Ask", use_container_width=True) and user_q:
         from news import ask_question
 
+        picks_made = len(st.session_state.drafted)
+        size = st.session_state.get("league_size", 10)
         with st.spinner("Thinking..."):
             st.session_state.answer = ask_question(
                 user_q,
-                league_size=st.session_state.get("league_size", 10),
+                league_size=size,
                 scoring=st.session_state.get("scoring", "PPR"),
                 my_roster=st.session_state.my_roster,
                 taken=st.session_state.drafted,
+                round_num=picks_made // size + 1,
+                pick_in_round=picks_made % size + 1,
             )
 
     if st.session_state.get("answer"):
