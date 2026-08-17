@@ -178,7 +178,13 @@ with st.sidebar:
         from news import ask_question
 
         with st.spinner("Thinking..."):
-            st.session_state.answer = ask_question(user_q)
+            st.session_state.answer = ask_question(
+                user_q,
+                league_size=st.session_state.get("league_size", 10),
+                scoring=st.session_state.get("scoring", "PPR"),
+                my_roster=st.session_state.my_roster,
+                taken=st.session_state.drafted,
+            )
 
     if st.session_state.get("answer"):
         st.markdown(
@@ -320,6 +326,59 @@ if mode == "🏈 Draft":
             f"<div class='rec-panel'><div class='rec-label'>Recommended Pick</div>"
             f"<div class='rec-name'>{pick['name']} &nbsp; {badge(pick['position'], pick.get('tier', ''))}</div>"
             f"<div class='rec-meta'>{reason} · PROJ {pick['points']} · VOR {pick['vor']}</div></div>",
+            unsafe_allow_html=True,
+        )
+        # ---- Quick Entry (fast pick marking for live drafts) ----
+    st.markdown("<div class='sec-head'>Quick Entry</div>", unsafe_allow_html=True)
+    qcol1, qcol2, qcol3 = st.columns([3, 1, 1])
+    with qcol1:
+        quick_name = st.text_input(
+            "Quick mark",
+            label_visibility="collapsed",
+            placeholder="Type a player name…",
+            key="quick_entry",
+        )
+
+    def quick_mark(mine):
+        typed = st.session_state.quick_entry.strip().lower()
+        if not typed:
+            return
+        # Find undrafted players whose name contains what you typed
+        matches = [p for p in available if typed in p["name"].lower()]
+        if len(matches) == 1:
+            draft_player(matches[0], mine)
+            st.session_state.quick_msg = (
+                f"✓ {'Drafted' if mine else 'Marked taken'}: {matches[0]['name']}"
+            )
+            st.session_state.quick_entry = ""
+        elif len(matches) == 0:
+            st.session_state.quick_msg = f"⚠️ No match for '{typed}'"
+        else:
+            names = ", ".join(m["name"] for m in matches[:5])
+            st.session_state.quick_msg = (
+                f"⚠️ Multiple matches — be more specific: {names}"
+            )
+
+    qcol2.button(
+        "Mine",
+        key="quick_mine",
+        on_click=quick_mark,
+        args=(True,),
+        type="primary",
+        use_container_width=True,
+    )
+    qcol3.button(
+        "Taken",
+        key="quick_taken",
+        on_click=quick_mark,
+        args=(False,),
+        use_container_width=True,
+    )
+
+    if st.session_state.get("quick_msg"):
+        color = "#34d399" if st.session_state.quick_msg.startswith("✓") else "#fb923c"
+        st.markdown(
+            f"<span style='color:{color};font-size:0.85rem'>{st.session_state.quick_msg}</span>",
             unsafe_allow_html=True,
         )
 

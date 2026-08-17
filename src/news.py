@@ -40,13 +40,25 @@ def get_player_news(name, team, position):
     return {"summary": summary, "sources": sources}
 
 
-def ask_question(question):
-    """Answer an open fantasy football question in an energetic analyst style."""
+def ask_question(question, league_size=10, scoring="PPR", my_roster=None, taken=None):
+    """Answer a fantasy question, aware of the user's draft situation."""
+    roster_text = "nobody yet"
+    if my_roster:
+        roster_text = ", ".join(f"{p['name']} ({p['position']})" for p in my_roster)
+
+    taken_text = ""
+    if taken:
+        # Just the count and a sample — the full list can be long
+        taken_text = f" So far {len(taken)} players have been drafted overall. "
+
     prompt = (
         f"You're a sharp, energetic fantasy football analyst with a lively "
-        f"podcast-style voice — confident, fun, and opinionated, but grounded in "
-        f"real reasoning. Answer this fantasy football question in 3-5 sentences "
-        f"with a clear take. Search the web if you need current information.\n\n"
+        f"podcast-style voice — confident, fun, opinionated, but grounded in real "
+        f"reasoning. The person is drafting in a {league_size}-team {scoring} league. "
+        f"Their current roster is: {roster_text}.{taken_text}"
+        f"Give advice tailored to their roster and format — what positions they still "
+        f"need, who to target. Answer in 3-5 sentences with a clear take. "
+        f"Search the web if you need current information.\n\n"
         f"Question: {question}"
     )
     response = client.messages.create(
