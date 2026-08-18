@@ -152,7 +152,7 @@ with st.sidebar:
     )
     st.divider()
 
-    # ---- Player Search (both modes) ----
+    # ---- Player Search ----
     st.markdown("<div class='sec-head'>Player Search</div>", unsafe_allow_html=True)
     news_options = {f"{p['name']} · {p['position']} {p['team']}": p for p in board}
     choice = st.selectbox(
@@ -163,11 +163,37 @@ with st.sidebar:
         with st.spinner(f"Searching outlets for {picked['name']}..."):
             result = cached_news(picked["name"], picked["team"], picked["position"])
             st.session_state.news_summary = result["summary"]
-            st.session_state.news_sources = result["sources"]
+            st.session_state.news_sources = result.get("sources", {})
             st.session_state.news_player = picked["name"]
             st.session_state.news_photo = sleeper_photo(picked.get("player_id"))
 
-    # ---- Ask the Analyst (both modes) ----
+    # News result — directly under Player Search
+    if st.session_state.get("news_summary"):
+        with st.expander(
+            f"📰 News: {st.session_state.get('news_player', '')}", expanded=True
+        ):
+            if st.session_state.get("news_photo"):
+                st.image(st.session_state.news_photo, width=70)
+            st.markdown(
+                f"<div style='color:#ffffff;'>{st.session_state.news_summary}</div>",
+                unsafe_allow_html=True,
+            )
+            sources = st.session_state.get("news_sources", {})
+            if sources:
+                st.markdown(
+                    "<div style='color:#7d8590;font-size:0.7rem;margin-top:8px;"
+                    "text-transform:uppercase;letter-spacing:1px'>Sources</div>",
+                    unsafe_allow_html=True,
+                )
+                for url, title in sources.items():
+                    short = title[:40] + "…" if len(title) > 40 else title
+                    st.markdown(
+                        f"<a href='{url}' target='_blank' "
+                        f"style='color:#38bdf8;font-size:0.78rem'>{short}</a>",
+                        unsafe_allow_html=True,
+                    )
+
+    # ---- Ask the Analyst ----
     st.markdown("<div class='sec-head'>Ask the Analyst</div>", unsafe_allow_html=True)
     user_q = st.text_input(
         "Ask a fantasy question",
@@ -190,35 +216,13 @@ with st.sidebar:
                 pick_in_round=picks_made % size + 1,
             )
 
+    # Analyst answer — directly under Ask the Analyst
     if st.session_state.get("answer"):
-        st.markdown(
-            f"<div style='color:#ffffff;'>{st.session_state.answer}</div>",
-            unsafe_allow_html=True,
-        )
-
-    if st.session_state.get("news_summary"):
-        if st.session_state.get("news_photo"):
-            st.image(st.session_state.news_photo, width=70)
-        st.markdown(f"**{st.session_state.get('news_player', '')}**")
-        st.markdown(
-            f"<div style='color:#ffffff;'>{st.session_state.news_summary}</div>",
-            unsafe_allow_html=True,
-        )
-        sources = st.session_state.get("news_sources", {})
-        if sources:
+        with st.expander("💬 Analyst answer", expanded=True):
             st.markdown(
-                "<div style='color:#7d8590;font-size:0.7rem;margin-top:8px;"
-                "text-transform:uppercase;letter-spacing:1px'>Sources</div>",
+                f"<div style='color:#ffffff;'>{st.session_state.answer}</div>",
                 unsafe_allow_html=True,
             )
-            for url, title in sources.items():
-                short = title[:45] + "…" if len(title) > 45 else title
-                st.markdown(
-                    f"<a href='{url}' target='_blank' "
-                    f"style='color:#38bdf8;font-size:0.78rem'>{short}</a>",
-                    unsafe_allow_html=True,
-                )
-
     # ---- Draft-only sidebar sections ----
     if mode == "Draft":
         st.divider()
