@@ -23,7 +23,7 @@ def grade_draft(my_roster, starters, bench_spots):
 
     # --- Combine into a 0-100 score ---
     # Weighted: value density 40%, completeness 35%, balance 25%
-    value_score = min(avg_vor / 60, 1.0) * 40  # 60+ avg VOR = full marks
+    value_score = min(avg_vor / 3, 1.0) * 40  # ~4 avg VOR = full marks
     complete_score = completeness * 35
     balance_score = balance * 25
     total_score = value_score + complete_score + balance_score
