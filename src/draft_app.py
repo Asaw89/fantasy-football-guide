@@ -450,11 +450,24 @@ if mode == "Draft":
             st.session_state.pos_filter = pos
             st.rerun()
 
+    sort_by = st.radio(
+        "Sort by",
+        options=["VOR", "Consensus", "ESPN"],
+        horizontal=True,
+        key="sort_by",
+    )
+
     if st.session_state.pos_filter == "All":
-        shown = available
+        shown = list(available)
     else:
         shown = [p for p in available if p["position"] == st.session_state.pos_filter]
 
+    if sort_by == "VOR":
+        shown.sort(key=lambda p: p.get("vor", 0), reverse=True)
+    elif sort_by == "Consensus":
+        shown.sort(key=lambda p: p.get("consensus") or 9999)
+    elif sort_by == "ESPN":
+        shown.sort(key=lambda p: p.get("espn_rank") or 9999)
     st.markdown(
         f"<div style='color:#9aa4b2;font-size:0.85rem;margin:6px 0'>"
         f"Showing {min(len(shown), TOP_N)} of {len(shown)} available"
@@ -486,7 +499,7 @@ if mode == "Draft":
             this_tier = p.get("tier")
             tier_label = f"{st.session_state.pos_filter} · Tier {this_tier}"
 
-        if this_tier != last_tier:
+        if sort_by == "VOR" and this_tier != last_tier:
             st.markdown(
                 f"<div style='color:#00e0a4;font-size:0.72rem;letter-spacing:2px;"
                 f"text-transform:uppercase;border-bottom:1px solid #1f2a3a;"
