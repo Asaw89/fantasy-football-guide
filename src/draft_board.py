@@ -110,6 +110,8 @@ def build_board(scoring="pts_ppr", num_teams=12):
         if i > 0 and (board[i - 1]["vor"] - p["vor"]) > 12:
             global_tier += 1
         p["global_tier"] = global_tier
+        from espn_ranks import attach_espn_ranks
+    board = attach_espn_ranks(board)
     return board
 
 

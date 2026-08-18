@@ -512,8 +512,19 @@ if mode == "Draft":
         )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
         bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
+        espn_txt = ""
+        if p.get("espn_rank"):
+            espn_txt = f" · ESPN #{p['espn_rank']}"
+        split = ""
+        if p.get("disagreement"):
+            # Show which way the disagreement runs
+            if p["sleeper_rank"] < p["espn_rank"]:
+                split = " <span style='color:#fbbf24;font-size:0.7rem'>⚡ Sleeper higher</span>"
+            else:
+                split = " <span style='color:#fbbf24;font-size:0.7rem'>⚡ ESPN higher</span>"
         c[3].markdown(
-            f"<span class='mono'>{p['points']} / {p['vor']}<span class='rank-num'>{bye_txt}</span></span>",
+            f"<span class='mono'>{p['points']} / {p['vor']}"
+            f"<span class='rank-num'>{bye_txt}{espn_txt}</span></span>{split}",
             unsafe_allow_html=True,
         )
         c[4].button(
