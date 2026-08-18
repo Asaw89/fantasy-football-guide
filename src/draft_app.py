@@ -146,7 +146,7 @@ with st.sidebar:
     st.markdown("<div class='sec-head'>Mode</div>", unsafe_allow_html=True)
     mode = st.radio(
         "App mode",
-        options=["🏈 Draft", "📅 In-Season"],
+        options=["Draft", "In-Season"],
         label_visibility="collapsed",
         key="app_mode",
     )
@@ -220,7 +220,7 @@ with st.sidebar:
                 )
 
     # ---- Draft-only sidebar sections ----
-    if mode == "🏈 Draft":
+    if mode == "Draft":
         st.divider()
         st.markdown("<div class='sec-head'>My Roster</div>", unsafe_allow_html=True)
         if my_roster:
@@ -259,6 +259,25 @@ with st.sidebar:
             else "<span class='mono' style='color:#34d399'>Starters filled ✓</span>",
             unsafe_allow_html=True,
         )
+        # ---- Positional Strengths ----
+        # A position is a "strength" if you have surplus depth AND good value there
+        strengths = []
+        for pos in STARTERS:
+            pos_players = [p for p in my_roster if p["position"] == pos]
+            surplus = len(pos_players) - STARTERS[pos]  # extra beyond starters
+            pos_vor = sum(p.get("vor", 0) for p in pos_players)
+            # Strong if you have at least one extra AND meaningful total value
+            if surplus >= 1 and pos_vor > 100:
+                strengths.append((pos, len(pos_players), round(pos_vor)))
+
+        if strengths:
+            st.markdown("<div class='sec-head'>Strengths</div>", unsafe_allow_html=True)
+            for pos, count, vor in strengths:
+                st.markdown(
+                    f"{badge(pos)} <span style='color:#34d399;font-size:0.8rem'>"
+                    f"{count} deep · strong ({vor} VOR)</span>",
+                    unsafe_allow_html=True,
+                )
 
         starters_needed = sum(needs.values())
         total_starters = sum(STARTERS.values())
@@ -276,7 +295,7 @@ with st.sidebar:
 # ==================== HEADER ====================
 subtitle = (
     "Value-based rankings · live board"
-    if mode == "🏈 Draft"
+    if mode == "Draft"
     else "In-season tools · live from your league"
 )
 st.markdown(
@@ -287,7 +306,7 @@ st.markdown(
 
 
 # ==================== DRAFT MODE ====================
-if mode == "🏈 Draft":
+if mode == "Draft":
     # ---- Scoring + league size ----
     st.radio(
         "League scoring",
@@ -386,6 +405,38 @@ if mode == "🏈 Draft":
             unsafe_allow_html=True,
         )
 
+        # ---- Positional Scarcity (tiers remaining) ----
+    st.markdown(
+        "<div class='sec-head'>Position Scarcity · Tiers Left</div>",
+        unsafe_allow_html=True,
+    )
+
+    scarcity_cols = st.columns(6)
+    for col, pos in zip(scarcity_cols, ["QB", "RB", "WR", "TE", "K", "DEF"]):
+        pos_avail = [p for p in available if p["position"] == pos]
+        # Count how many remain in each within-position tier
+        tier_counts = {}
+        for p in pos_avail:
+            t = p.get("tier", "?")
+            tier_counts[t] = tier_counts.get(t, 0) + 1
+
+        # Build a small readout, top 3 tiers
+        lines = ""
+        for t in sorted(k for k in tier_counts if isinstance(k, int))[:3]:
+            n = tier_counts[t]
+            # Warn (orange) when a top tier is nearly gone
+            warn = n <= 2 and t <= 2
+            color = "#fb923c" if warn else "#9aa4b2"
+            flag = " ⚠️" if warn else ""
+            lines += (
+                f"<div style='color:{color};font-size:0.72rem'>T{t}: {n}{flag}</div>"
+            )
+
+        col.markdown(
+            f"<div style='text-align:center'>{badge(pos)}</div>{lines}",
+            unsafe_allow_html=True,
+        )
+
     # ---- Board ----
     st.markdown("<div class='sec-head'>Best Available</div>", unsafe_allow_html=True)
 
@@ -411,6 +462,20 @@ if mode == "🏈 Draft":
         f"</div>",
         unsafe_allow_html=True,
     )
+    # ---- Stack detection ----
+    # Teams where you have a QB → highlight available WR/TE on those teams
+    my_qb_teams = {p["team"] for p in my_roster if p["position"] == "QB"}
+    # Teams where you have a WR/TE → highlight available QB on those teams
+    my_pass_catcher_teams = {
+        p["team"] for p in my_roster if p["position"] in ("WR", "TE")
+    }
+
+    def is_stack(p):
+        if p["position"] in ("WR", "TE") and p["team"] in my_qb_teams:
+            return True
+        if p["position"] == "QB" and p["team"] in my_pass_catcher_teams:
+            return True
+        return False
 
     last_tier = None
     for i, p in enumerate(shown[:TOP_N], start=1):
@@ -433,9 +498,16 @@ if mode == "🏈 Draft":
         key = player_key(p)
         c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
         c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)
+        stack_tag = ""
+        if is_stack(p):
+            stack_tag = (
+                " <span style='color:#00e0a4;font-size:0.7rem;"
+                "font-weight:600;border:1px solid #00e0a4;border-radius:4px;"
+                "padding:1px 5px'> STACK</span>"
+            )
         c[1].markdown(
             f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
-            f"<span class='rank-num'>{p['team']}</span>",
+            f"<span class='rank-num'>{p['team']}</span>{stack_tag}",
             unsafe_allow_html=True,
         )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
@@ -547,7 +619,7 @@ if mode == "🏈 Draft":
 
 
 # ==================== IN-SEASON MODE ====================
-if mode == "📅 In-Season":
+if mode == "In-Season":
     # ---- Waiver Targets (live from ESPN) ----
     st.markdown(
         "<div class='sec-head'>Waiver Targets · Live</div>", unsafe_allow_html=True
