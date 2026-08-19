@@ -152,6 +152,32 @@ with st.sidebar:
     )
     st.divider()
 
+    @st.cache_data(ttl=1800, show_spinner=False)
+    def load_top_stories(player_names):
+        from news import get_top_stories
+
+        # player_names is a tuple (hashable for caching); empty = general news
+        return get_top_stories(list(player_names) if player_names else None)
+
+    # Build a stable, hashable key from the current roster
+    roster_names = tuple(sorted(p["name"] for p in my_roster))
+    label = "📰 Your Players" if roster_names else "📰 The Latest"
+
+    with st.expander(label, expanded=False):
+        try:
+            for s in load_top_stories(roster_names):
+                st.markdown(
+                    f"<div style='margin-bottom:8px'>"
+                    f"<span style='color:#00e0a4;font-size:0.72rem'>{s['player']}</span><br>"
+                    f"<span style='color:#ffffff;font-size:0.85rem'>{s['headline']}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        except Exception:
+            st.markdown(
+                "<span class='rank-num'>News unavailable right now</span>",
+                unsafe_allow_html=True,
+            )
+
     # ---- Player Search ----
     st.markdown("<div class='sec-head'>Player Search</div>", unsafe_allow_html=True)
     news_options = {f"{p['name']} · {p['position']} {p['team']}": p for p in board}
