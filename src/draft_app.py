@@ -517,16 +517,23 @@ if mode == "Draft":
         c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)
         stack_tag = ""
         if is_stack(p):
-            stack_tag = (
-                " <span style='color:#00e0a4;font-size:0.7rem;"
-                "font-weight:600;border:1px solid #00e0a4;border-radius:4px;"
-                "padding:1px 5px'> STACK</span>"
+            # Highlighted stack row: tinted background, glowing border, bold tag
+            c[1].markdown(
+                f"<div style='background:rgba(0,224,164,0.12);border-left:3px solid #00e0a4;"
+                f"border-radius:6px;padding:4px 10px;'>"
+                f"<span style='color:#ffffff;font-weight:700;'>{p['name']}</span> "
+                f"<span class='rank-num'>{p['team']}</span> "
+                f"<span style='background:#00e0a4;color:#0b0f17;font-size:0.68rem;"
+                f"font-weight:700;border-radius:4px;padding:1px 6px;margin-left:4px'>"
+                f"🔗 STACK</span></div>",
+                unsafe_allow_html=True,
             )
-        c[1].markdown(
-            f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
-            f"<span class='rank-num'>{p['team']}</span>{stack_tag}",
-            unsafe_allow_html=True,
-        )
+        else:
+            c[1].markdown(
+                f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
+                f"<span class='rank-num'>{p['team']}</span>",
+                unsafe_allow_html=True,
+            )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
         bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
         espn_txt = ""
