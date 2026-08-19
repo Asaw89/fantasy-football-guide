@@ -482,7 +482,7 @@ if mode == "Draft":
 
     sort_by = st.radio(
         "Sort by",
-        options=["VOR", "Consensus", "ESPN"],
+        options=["VOR", "Consensus", "ESPN", "Berry"],
         horizontal=True,
         key="sort_by",
     )
@@ -498,6 +498,8 @@ if mode == "Draft":
         shown.sort(key=lambda p: p.get("consensus") or 9999)
     elif sort_by == "ESPN":
         shown.sort(key=lambda p: p.get("espn_rank") or 9999)
+    elif sort_by == "Berry":
+        shown.sort(key=lambda p: p.get("berry_rank") or 9999)
     st.markdown(
         f"<div style='color:#9aa4b2;font-size:0.85rem;margin:6px 0'>"
         f"Showing {min(len(shown), TOP_N)} of {len(shown)} available"
@@ -562,19 +564,20 @@ if mode == "Draft":
             )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
         bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
-        espn_txt = ""
+        ranks_txt = ""
         if p.get("espn_rank"):
-            espn_txt = f" · ESPN #{p['espn_rank']}"
+            ranks_txt += f" · ESPN #{p['espn_rank']}"
+        if p.get("berry_rank"):
+            ranks_txt += f" · Berry #{p['berry_rank']}"
         split = ""
         if p.get("disagreement"):
-            # Show which way the disagreement runs
-            if p["sleeper_rank"] < p["espn_rank"]:
-                split = " <span style='color:#fbbf24;font-size:0.7rem'>⚡ Sleeper higher</span>"
-            else:
-                split = " <span style='color:#fbbf24;font-size:0.7rem'>⚡ ESPN higher</span>"
+            split = (
+                f" <span style='color:#fbbf24;font-size:0.7rem'>"
+                f"⚡ SPLIT ({p.get('rank_spread')})</span>"
+            )
         c[3].markdown(
             f"<span class='mono'>{p['points']} / {p['vor']}"
-            f"<span class='rank-num'>{bye_txt}{espn_txt}</span></span>{split}",
+            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}",
             unsafe_allow_html=True,
         )
         c[4].button(

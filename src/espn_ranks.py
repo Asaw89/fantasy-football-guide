@@ -1,7 +1,8 @@
 import json
 import os
 
-_cache = None
+_espn_cache = None
+_berry_cache = None
 
 
 def _normalize(name):
@@ -11,43 +12,61 @@ def _normalize(name):
     return n.strip()
 
 
-def load_espn_ranks():
-    """Load ESPN rankings from the JSON file, keyed by normalized name."""
-    global _cache
-    if _cache is not None:
-        return _cache
-    path = os.path.join(os.path.dirname(__file__), "espn_rankings.json")
+def _load(filename):
+    path = os.path.join(os.path.dirname(__file__), filename)
     try:
         with open(path) as f:
-            data = json.load(f)
+            return json.load(f)
     except FileNotFoundError:
-        _cache = {}
-        return _cache
-    _cache = {_normalize(r["name"]): r["espn_rank"] for r in data}
-    return _cache
+        return []
 
 
-def attach_espn_ranks(board):
-    """Add espn_rank, consensus rank, and disagreement flag to each player."""
+def load_espn_ranks():
+    global _espn_cache
+    if _espn_cache is None:
+        _espn_cache = {
+            _normalize(r["name"]): r["espn_rank"] for r in _load("espn_rankings.json")
+        }
+    return _espn_cache
+
+
+def load_berry_ranks():
+    global _berry_cache
+    if _berry_cache is None:
+        _berry_cache = {
+            _normalize(r["name"]): r["berry_rank"] for r in _load("berry_rankings.json")
+        }
+    return _berry_cache
+
+
+def attach_ranks(board):
+    """Attach ESPN + Berry ranks, a three-source consensus, and disagreement flags."""
     espn = load_espn_ranks()
+    berry = load_berry_ranks()
 
-    # First, give each player their Sleeper rank (their VOR order on the board)
+    # Sleeper rank = each player's VOR order on the board
     by_vor = sorted(board, key=lambda p: p.get("vor", 0), reverse=True)
     for i, p in enumerate(by_vor, start=1):
         p["sleeper_rank"] = i
 
     for p in board:
-        e_rank = espn.get(_normalize(p["name"]))
-        p["espn_rank"] = e_rank
-        if e_rank is not None:
-            # Consensus = average of the two ranks
-            p["consensus"] = round((p["sleeper_rank"] + e_rank) / 2, 1)
-            gap = abs(p["sleeper_rank"] - e_rank)
-            p["rank_gap"] = gap
-            p["disagreement"] = gap >= 15  # 15+ spots apart = real split
-        else:
-            # No ESPN rank (e.g. defenses, or players outside their top 300)
-            p["consensus"] = p["sleeper_rank"]
-            p["rank_gap"] = 0
-            p["disagreement"] = False
+        key = _normalize(p["name"])
+        p["espn_rank"] = espn.get(key)
+        p["berry_rank"] = berry.get(key)
+
+        # Consensus = average of whatever sources are available for this player
+        ranks = [p["sleeper_rank"]]
+        if p["espn_rank"] is not None:
+            ranks.append(p["espn_rank"])
+        if p["berry_rank"] is not None:
+            ranks.append(p["berry_rank"])
+        p["consensus"] = round(sum(ranks) / len(ranks), 1)
+
+        # Disagreement = the spread between the highest and lowest ranking
+        p["rank_spread"] = max(ranks) - min(ranks)
+        p["disagreement"] = p["rank_spread"] >= 15
     return board
+
+
+# Backwards-compatible alias, in case draft_board still calls the old name
+attach_espn_ranks = attach_ranks
