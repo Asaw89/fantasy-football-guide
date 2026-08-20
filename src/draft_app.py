@@ -9,7 +9,7 @@ st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout
 
 # ---- Config ----
 STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
-BENCH_SPOTS = 7
+BENCH_SPOTS = 8
 NEED_BONUS = 20.0
 TOP_N = 30
 SCORING_LABELS = {"PPR": "pts_ppr", "Half-PPR": "pts_half_ppr", "Standard": "pts_std"}
@@ -565,6 +565,8 @@ if mode == "Draft":
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
         bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
         ranks_txt = ""
+        if p.get("sleeper_rank"):
+            ranks_txt += f" · Sleeper #{p['sleeper_rank']}"
         if p.get("espn_rank"):
             ranks_txt += f" · ESPN #{p['espn_rank']}"
         if p.get("berry_rank"):
