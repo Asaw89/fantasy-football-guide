@@ -4,6 +4,7 @@ from draft_board import build_board, NUM_TEAMS
 from categories import sleepers, top_rookies, boom_ceiling, high_floor
 from grader import grade_draft
 from collections import Counter as _C
+from player_tags import get_tags, TAG_STYLES
 
 st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout="wide")
 
@@ -543,6 +544,16 @@ if mode == "Draft":
         key = player_key(p)
         c = st.columns([0.5, 3.2, 1.3, 1.8, 1, 1], vertical_alignment="center")
         c[0].markdown(f"<span class='rank-num'>{i:>2}</span>", unsafe_allow_html=True)
+
+        tag_html = ""
+        for t in get_tags(p["name"]):
+            style = TAG_STYLES[t]
+            tag_html += (
+                f" <span style='background:{style['color']}22;"
+                f"color:{style['color']};border:1px solid {style['color']}66;"
+                f"font-size:0.62rem;font-weight:700;border-radius:4px;"
+                f"padding:1px 5px;margin-left:3px'>{style['label']}</span>"
+            )
         stack_tag = ""
         if is_stack(p):
             # Highlighted stack row: tinted background, glowing border, bold tag
@@ -559,7 +570,7 @@ if mode == "Draft":
         else:
             c[1].markdown(
                 f"<span style='color:#ffffff;font-weight:600;'>{p['name']}</span> "
-                f"<span class='rank-num'>{p['team']}</span>",
+                f"<span class='rank-num'>{p['team']}</span>{tag_html}",
                 unsafe_allow_html=True,
             )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
