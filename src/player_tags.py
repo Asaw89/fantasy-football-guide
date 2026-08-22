@@ -25,6 +25,7 @@ VALUE = [
 TAG_STYLES = {
     "ride_or_die": {"label": "RIDE OR DIE", "color": "#78f472"},
     "breakout": {"label": "BREAKOUT", "color": "#facc15"},
+    "value": {"label": "VALUE", "color": "#3441d3"},
 }
 
 
@@ -38,6 +39,7 @@ def _normalize(name):
 # Build lookup sets once
 _ride = {_normalize(n) for n in RIDE_OR_DIE}
 _break = {_normalize(n) for n in BREAKOUTS}
+_value = {_normalize(n) for n in VALUE}
 
 
 def get_tags(player_name):
@@ -48,4 +50,6 @@ def get_tags(player_name):
         tags.append("ride_or_die")
     if key in _break:
         tags.append("breakout")
+    if key in _value:
+        tags.append("value")
     return tags

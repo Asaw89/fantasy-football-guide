@@ -5,6 +5,7 @@ from categories import sleepers, top_rookies, boom_ceiling, high_floor
 from grader import grade_draft
 from collections import Counter as _C
 from player_tags import get_tags, TAG_STYLES
+from news import get_top_stories
 
 st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout="wide")
 
@@ -110,6 +111,12 @@ def reset_draft():
     st.session_state.my_roster = []
 
 
+def load_top_stories(player_names):
+    from news import get_top_stories
+
+    return get_top_stories(list(player_names) if player_names else None)
+
+
 # ---- Session defaults ----
 if "drafted" not in st.session_state:
     st.session_state.drafted = set()
@@ -153,31 +160,21 @@ with st.sidebar:
     )
     st.divider()
 
-    @st.cache_data(ttl=1800, show_spinner=False)
-    def load_top_stories(player_names):
-        from news import get_top_stories
-
-        # player_names is a tuple (hashable for caching); empty = general news
-        return get_top_stories(list(player_names) if player_names else None)
-
-    # Build a stable, hashable key from the current roster
-    roster_names = tuple(sorted(p["name"] for p in my_roster))
-    label = "📰 Your Players" if roster_names else "📰 The Latest"
-
-    with st.expander(label, expanded=False):
+    with st.expander("📰 The Latest", expanded=False):
         try:
-            for s in load_top_stories(roster_names):
+            for s in load_top_stories(()):
                 st.markdown(
                     f"<div style='margin-bottom:8px'>"
                     f"<span style='color:#00e0a4;font-size:0.72rem'>{s['player']}</span><br>"
                     f"<span style='color:#ffffff;font-size:0.85rem'>{s['headline']}</span></div>",
                     unsafe_allow_html=True,
                 )
-        except Exception:
-            st.markdown(
-                "<span class='rank-num'>News unavailable right now</span>",
-                unsafe_allow_html=True,
-            )
+        except Exception as e:
+            st.markdown(f"Error: {e}")
+
+    # Build a stable, hashable key from the current roster
+    roster_names = tuple(sorted(p["name"] for p in my_roster))
+    label = "📰 Your Players" if roster_names else "📰 The Latest"
 
     # ---- Player Search ----
     st.markdown("<div class='sec-head'>Player Search</div>", unsafe_allow_html=True)
@@ -508,6 +505,24 @@ if mode == "Draft":
         f"</div>",
         unsafe_allow_html=True,
     )
+    # ---- Tag filter ----
+    tag_filter = st.radio(
+        "Show tagged",
+        options=["All players", "⭐ Ride or Die", "📈 Breakout", "💎 Value"],
+        horizontal=True,
+        key="tag_filter",
+    )
+
+    tag_map = {
+        "⭐ Ride or Die": "ride_or_die",
+        "📈 Breakout": "breakout",
+        "💎 Value": "value",
+    }
+    if tag_filter in tag_map:
+        from player_tags import get_tags
+
+        wanted = tag_map[tag_filter]
+        shown = [p for p in shown if wanted in get_tags(p["name"])]
     # ---- Stack detection ----
     # Teams where you have a QB → highlight available WR/TE on those teams
     my_qb_teams = {p["team"] for p in my_roster if p["position"] == "QB"}
