@@ -523,6 +523,20 @@ if mode == "Draft":
 
         wanted = tag_map[tag_filter]
         shown = [p for p in shown if wanted in get_tags(p["name"])]
+
+    # ---- Injury filter ----
+    injury_filter = st.radio(
+        "Injuries",
+        options=["Show all", "Healthy", "Injured"],
+        horizontal=True,
+        key="injury_filter",
+    )
+    INJURED = {"IR", "PUP", "Out", "OUT", "NA", "Questionable"}
+    if injury_filter == "Healthy":
+        shown = [p for p in shown if p.get("injury_status") not in INJURED]
+    elif injury_filter == "Injured":
+        shown = [p for p in shown if p.get("injury_status") in INJURED]
+
     # ---- Stack detection ----
     # Teams where you have a QB → highlight available WR/TE on those teams
     my_qb_teams = {p["team"] for p in my_roster if p["position"] == "QB"}
@@ -629,7 +643,7 @@ if mode == "Draft":
             )
         c[3].markdown(
             f"<span class='mono'>{p['points']} / {p['vor']}"
-            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}{value_flag},{injury_flag}",
+            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}{value_flag}{injury_flag}",
             unsafe_allow_html=True,
         )
         c[4].button(
