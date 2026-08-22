@@ -49,6 +49,22 @@ def attach_ranks(board):
     for i, p in enumerate(by_vor, start=1):
         p["sleeper_rank"] = i
 
+    by_vor = sorted(board, key=lambda p: p.get("vor", 0), reverse=True)
+    for i, p in enumerate(by_vor, start=1):
+        p["sleeper_rank"] = i
+
+        # ADP rank: position when sorted by ADP (lower ADP = earlier = better)
+    by_adp = sorted([p for p in board if p.get("adp")], key=lambda p: p["adp"])
+    for i, p in enumerate(by_adp, start=1):
+        p["adp_rank"] = i
+    # Value gap: how much later a player is drafted than your model ranks them.
+    # Positive = VALUE (drafted later than deserved). Negative = REACH.
+    for p in board:
+        if p.get("adp_rank"):
+            p["value_gap"] = p["adp_rank"] - p["sleeper_rank"]
+        else:
+            p["value_gap"] = 0
+
     for p in board:
         key = _normalize(p["name"])
         p["espn_rank"] = espn.get(key)

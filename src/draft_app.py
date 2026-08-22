@@ -603,9 +603,23 @@ if mode == "Draft":
                 f" <span style='color:#fbbf24;font-size:0.7rem'>"
                 f"⚡ SPLIT ({p.get('rank_spread')})</span>"
             )
+        value_flag = ""
+        gap = p.get("value_gap", 0)
+        if gap >= 12:
+            value_flag = (
+                f" <span style='background:#34d39922;color:#34d399;"
+                f"border:1px solid #34d39966;font-size:0.62rem;font-weight:700;"
+                f"border-radius:4px;padding:1px 5px'>💎 VALUE +{gap}</span>"
+            )
+        elif gap <= -12:
+            value_flag = (
+                f" <span style='background:#f8717122;color:#f87171;"
+                f"border:1px solid #f8717166;font-size:0.62rem;font-weight:700;"
+                f"border-radius:4px;padding:1px 5px'>⚠️ REACH {gap}</span>"
+            )
         c[3].markdown(
             f"<span class='mono'>{p['points']} / {p['vor']}"
-            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}",
+            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}{value_flag}",
             unsafe_allow_html=True,
         )
         c[4].button(
