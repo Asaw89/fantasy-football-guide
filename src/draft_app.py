@@ -588,6 +588,16 @@ if mode == "Draft":
                 f"<span class='rank-num'>{p['team']}</span>{tag_html}",
                 unsafe_allow_html=True,
             )
+        injury_flag = ""
+        inj = p.get("injury_status")
+        if inj and inj not in ("ACTIVE", None):
+            # Color by severity — red for serious, orange for questionable
+            color = "#f87171" if inj in ("IR", "PUP", "Out", "OUT", "NA") else "#e8fb3c"
+            injury_flag = (
+                f" <span style='background:{color}22;color:{color};"
+                f"border:1px solid {color}66;font-size:0.62rem;font-weight:700;"
+                f"border-radius:4px;padding:1px 5px'>⚕️ {inj}</span>"
+            )
         c[2].markdown(badge(p["position"], p.get("tier", "")), unsafe_allow_html=True)
         bye_txt = f" · Bye {p['bye']}" if p.get("bye") else ""
         ranks_txt = ""
@@ -619,7 +629,7 @@ if mode == "Draft":
             )
         c[3].markdown(
             f"<span class='mono'>{p['points']} / {p['vor']}"
-            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}{value_flag}",
+            f"<span class='rank-num'>{bye_txt}{ranks_txt}</span></span>{split}{value_flag},{injury_flag}",
             unsafe_allow_html=True,
         )
         c[4].button(

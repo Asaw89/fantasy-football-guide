@@ -54,6 +54,8 @@ def fetch_position(position, scoring="pts_ppr"):
                 "tds": (stats.get("rush_td") or 0) + (stats.get("rec_td") or 0),
                 "big_plays": stats.get("rec_40p") or 0,
                 "receptions": stats.get("rec") or 0,
+                "injury_status": info.get("injury_status"),
+                "injury_body_part": info.get("injury_body_part"),
             }
         )
 
