@@ -138,7 +138,6 @@ board = list({player_key(x): x for x in board}.values())  # de-duplicate
 my_roster = st.session_state.my_roster
 available = [p for p in board if player_key(p) not in st.session_state.drafted]
 available.sort(key=lambda p: p["vor"], reverse=True)
-st.sidebar.write(f"⏱️ board prep: {time.time() - _t:.2f}s")
 
 counts = Counter(p["position"] for p in my_roster)
 needs = {pos: max(0, STARTERS[pos] - counts.get(pos, 0)) for pos in STARTERS}
