@@ -133,7 +133,6 @@ if "pos_filter" not in st.session_state:
 board = load_board(
     SCORING_LABELS[st.session_state.scoring], st.session_state.league_size
 )
-_t = time.time()
 board = list({player_key(x): x for x in board}.values())  # de-duplicate
 
 my_roster = st.session_state.my_roster
