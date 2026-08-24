@@ -6,7 +6,6 @@ from grader import grade_draft
 from collections import Counter as _C
 from player_tags import get_tags, TAG_STYLES
 from news import get_top_stories
-import time
 
 st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout="wide")
 
@@ -152,7 +151,7 @@ def adjusted_score(p):
 
 
 # ==================== SIDEBAR ====================
-_ts = time.time()
+
 with st.sidebar:
     # ---- Mode toggle (top) ----
     st.markdown("<div class='sec-head'>Mode</div>", unsafe_allow_html=True)
@@ -326,7 +325,6 @@ with st.sidebar:
         st.divider()
         st.button("Reset draft", on_click=reset_draft, use_container_width=True)
 
-st.write(f"⏱️ sidebar: {time.time() - _ts:.2f}s")
 
 # ==================== HEADER ====================
 subtitle = (
