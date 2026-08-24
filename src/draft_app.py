@@ -6,6 +6,7 @@ from grader import grade_draft
 from collections import Counter as _C
 from player_tags import get_tags, TAG_STYLES
 from news import get_top_stories
+import time
 
 st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout="wide")
 
@@ -13,7 +14,7 @@ st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout
 STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
 BENCH_SPOTS = 8
 NEED_BONUS = 20.0
-TOP_N = 30
+TOP_N = 10
 SCORING_LABELS = {"PPR": "pts_ppr", "Half-PPR": "pts_half_ppr", "Standard": "pts_std"}
 
 POS_COLORS = {
@@ -133,11 +134,13 @@ if "pos_filter" not in st.session_state:
 board = load_board(
     SCORING_LABELS[st.session_state.scoring], st.session_state.league_size
 )
+_t = time.time()
 board = list({player_key(x): x for x in board}.values())  # de-duplicate
 
 my_roster = st.session_state.my_roster
 available = [p for p in board if player_key(p) not in st.session_state.drafted]
 available.sort(key=lambda p: p["vor"], reverse=True)
+st.sidebar.write(f"⏱️ board prep: {time.time() - _t:.2f}s")
 
 counts = Counter(p["position"] for p in my_roster)
 needs = {pos: max(0, STARTERS[pos] - counts.get(pos, 0)) for pos in STARTERS}
@@ -149,6 +152,7 @@ def adjusted_score(p):
 
 
 # ==================== SIDEBAR ====================
+_ts = time.time()
 with st.sidebar:
     # ---- Mode toggle (top) ----
     st.markdown("<div class='sec-head'>Mode</div>", unsafe_allow_html=True)
@@ -160,17 +164,20 @@ with st.sidebar:
     )
     st.divider()
 
+    # ---- Top Stories (fetched once, stored in session) ----
     with st.expander("📰 The Latest", expanded=False):
-        try:
-            for s in load_top_stories(()):
+        if "top_stories" not in st.session_state:
+            if st.button("Load latest news"):
+                with st.spinner("Fetching..."):
+                    st.session_state.top_stories = load_top_stories(())
+        if st.session_state.get("top_stories"):
+            for s in st.session_state.top_stories:
                 st.markdown(
                     f"<div style='margin-bottom:8px'>"
                     f"<span style='color:#00e0a4;font-size:0.72rem'>{s['player']}</span><br>"
                     f"<span style='color:#ffffff;font-size:0.85rem'>{s['headline']}</span></div>",
                     unsafe_allow_html=True,
                 )
-        except Exception as e:
-            st.markdown(f"Error: {e}")
 
     # Build a stable, hashable key from the current roster
     roster_names = tuple(sorted(p["name"] for p in my_roster))
@@ -319,6 +326,7 @@ with st.sidebar:
         st.divider()
         st.button("Reset draft", on_click=reset_draft, use_container_width=True)
 
+st.write(f"⏱️ sidebar: {time.time() - _ts:.2f}s")
 
 # ==================== HEADER ====================
 subtitle = (
