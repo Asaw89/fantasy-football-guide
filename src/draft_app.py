@@ -13,7 +13,7 @@ st.set_page_config(page_title="Fantasy Command Center", page_icon="🏈", layout
 STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
 BENCH_SPOTS = 8
 NEED_BONUS = 20.0
-TOP_N = 10
+TOP_N = 30
 SCORING_LABELS = {"PPR": "pts_ppr", "Half-PPR": "pts_half_ppr", "Standard": "pts_std"}
 
 POS_COLORS = {
