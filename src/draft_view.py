@@ -34,7 +34,9 @@ def render_draft_mode(board, available, my_roster, needs, adjusted_score, draft_
 
     # ---- Recommendation ----
     if available:
-        pick = max(available, key=adjusted_score)
+        draftable = [p for p in available if p["position"] not in ("K", "DEF")]
+        if draftable:
+            pick = max(draftable, key=adjusted_score)
         fills = needs.get(pick["position"], 0) > 0
         reason = (
             f"fills a need at {pick['position']}"
@@ -152,7 +154,7 @@ def render_draft_mode(board, available, my_roster, needs, adjusted_score, draft_
     )
 
     if st.session_state.pos_filter == "All":
-        shown = list(available)
+        shown = [p for p in available if p["position"] not in ("K", "DEF")]
     else:
         shown = [p for p in available if p["position"] == st.session_state.pos_filter]
 
