@@ -12,12 +12,20 @@ BREAKOUTS = [
     "Ladd McConkey",
     "Kenneth Walker",
     "Luther Burden III",
+    "Parker Washington",
+    "Christian Watson",
+    "Rome Odunze",
+    "Emeka Egbuka",
+    "Marvin Harrison Jr.",
+    "Chris Olave",
+    "Davante Adams",
+    "Jameson Williams",
     # add analyst breakout picks here
 ]
 
 VALUE = [
     "Chris Godwin",
-    "Quentin Johnston",
+    "DJ Moore",
     # players going later that can have an impact
 ]
 

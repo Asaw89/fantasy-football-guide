@@ -79,6 +79,30 @@ def init_db():
     conn.close()
 
 
+def get_player_stats(player_name, season=None):
+    """Fetch a player's game-by-game stats from the database."""
+    conn = get_connection()
+    cur = conn.cursor()
+    query = """
+        SELECT s.season, s.week, s.team, s.pts_ppr,
+            s.snap_share, s.target_share, s.air_yard_share,
+            s.rush_att, s.rush_yd, s.rush_td,
+            s.rec, s.rec_yd, s.rec_td, s.targets
+        FROM player_game_stats s
+        JOIN players p ON s.player_id = p.player_id
+        WHERE LOWER(p.name) = LOWER(?)
+    """
+    params = [player_name.strip()]
+    if season:
+        query += " AND s.season = ?"
+        params.append(season)
+    query += " ORDER BY s.season, s.week"
+    cur.execute(query, params)
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
 if __name__ == "__main__":
     init_db()
     print("Database ready.")

@@ -52,3 +52,38 @@ def render_season_mode(load_waivers):
         "side of a proposed trade.</span>",
         unsafe_allow_html=True,
     )
+
+    # ---- Player Stat History (from the database) ----
+    st.markdown(
+        "<div class='sec-head'>Player Stat History</div>", unsafe_allow_html=True
+    )
+    from database import get_player_stats
+
+    stat_name = st.text_input(
+        "Look up historical game stats",
+        placeholder="e.g. Bijan Robinson",
+        key="stat_lookup",
+    )
+    if stat_name:
+        rows = get_player_stats(stat_name)
+        if rows:
+            # Quick summary above the table
+            seasons = sorted({r["season"] for r in rows})
+            avg_snap = round(
+                sum(r["snap_share"] or 0 for r in rows) / len(rows) * 100, 1
+            )
+            avg_tgt = round(
+                sum(r["target_share"] or 0 for r in rows) / len(rows) * 100, 1
+            )
+            st.markdown(
+                f"<span class='mono'>{len(rows)} games · {', '.join(map(str, seasons))} · "
+                f"avg snap {avg_snap}% · avg target share {avg_tgt}%</span>",
+                unsafe_allow_html=True,
+            )
+            st.dataframe(rows, use_container_width=True)
+        else:
+            st.markdown(
+                f"<span class='rank-num'>No stats found for '{stat_name}' — "
+                f"check spelling (first + last name).</span>",
+                unsafe_allow_html=True,
+            )
