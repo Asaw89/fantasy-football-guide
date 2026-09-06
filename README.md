@@ -1,3 +1,5 @@
+![Tests](https://github.com/asaw89/fantasy-football-guide/actions/workflows/tests.yml/badge.svg)
+
 # 🏈 Fantasy Football Command Center
 
 A full-stack Python application for fantasy football that combines a **value-based draft assistant** with **live in-season tools**. It blends projections and rankings from multiple sources, live league data, AI-generated analysis, and a historical stats database into one dark-themed "command center" for draft day and the season beyond.
