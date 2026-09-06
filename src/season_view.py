@@ -80,7 +80,6 @@ def render_season_mode(load_waivers):
             f"<div class='sec-head'>{chosen_label} · Roster</div>",
             unsafe_allow_html=True,
         )
-        from helpers import badge
 
         for p in roster:
             st.markdown(
@@ -122,7 +121,7 @@ def render_season_mode(load_waivers):
             )
             c[5].markdown(need, unsafe_allow_html=True)
 
-    # ---- Start / Sit (ESPN + Sleeper consensus) ----
+    # ---- Start / Sit (ESPN + Sleeper consensus, FLEX-aware) ----
     st.markdown("<div class='sec-head'>Start / Sit</div>", unsafe_allow_html=True)
 
     if st.button("Get start/sit advice"):
@@ -148,7 +147,6 @@ def render_season_mode(load_waivers):
                         espn = round(stats[wk]["projected_points"], 1)
                     slp = sleeper_proj.get(_normalize(p.name))
 
-                    # Consensus = average of whatever sources we have
                     vals = [v for v in (espn, slp) if v is not None]
                     consensus = round(sum(vals) / len(vals), 1) if vals else 0
                     disagree = (
@@ -181,52 +179,187 @@ def render_season_mode(load_waivers):
             by_pos[p["position"]].append(p)
 
         starts = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "D/ST": 1}
-        for pos in ["QB", "RB", "WR", "TE", "K", "D/ST"]:
+        FLEX_POSITIONS = ("RB", "WR", "TE")
+        position_order = ["QB", "RB", "WR", "TE", "K", "D/ST"]
+
+        # Figure out the FLEX pick: best leftover RB/WR/TE after required starters
+        flex_candidates = []
+        for pos in position_order:
+            players = sorted(
+                by_pos.get(pos, []), key=lambda x: x["consensus"], reverse=True
+            )
+            n_start = starts.get(pos, 1)
+            for i, p in enumerate(players):
+                if i >= n_start and pos in FLEX_POSITIONS:
+                    flex_candidates.append(p)
+        flex_pick = (
+            max(flex_candidates, key=lambda x: x["consensus"])
+            if flex_candidates
+            else None
+        )
+
+        def render_player(p, verdict_html):
+            inj = (
+                f" <span style='color:#fb923c;font-size:0.7rem'>⚠️{p['status']}</span>"
+                if p["status"] != "ACTIVE"
+                else ""
+            )
+            split = (
+                " <span style='color:#fbbf24;font-size:0.7rem'>⚡ split</span>"
+                if p["disagree"]
+                else ""
+            )
+            espn_txt = p["espn"] if p["espn"] is not None else "—"
+            slp_txt = p["sleeper"] if p["sleeper"] is not None else "—"
+            st.markdown(
+                f"{badge(p['position'])} <span style='color:#ffffff'>{p['name']}</span> "
+                f"<span class='rank-num'>{p['team']}</span> · "
+                f"<span class='mono'>{p['consensus']} pts</span> "
+                f"<span class='rank-num'>(ESPN {espn_txt} · Slp {slp_txt})</span> · "
+                f"{verdict_html}{split}{inj}",
+                unsafe_allow_html=True,
+            )
+
+        for pos in position_order:
             players = sorted(
                 by_pos.get(pos, []), key=lambda x: x["consensus"], reverse=True
             )
             if not players:
                 continue
-            n_start = starts.get(pos, 1)
             st.markdown(
                 f"<div style='margin-top:10px;color:#00e0a4;font-size:0.8rem'>{pos}</div>",
                 unsafe_allow_html=True,
             )
+            n_start = starts.get(pos, 1)
             for i, p in enumerate(players):
-                verdict = (
-                    "<span style='color:#34d399;font-weight:700'>START</span>"
-                    if i < n_start
-                    else "<span style='color:#7d8590'>bench</span>"
-                )
-                inj = (
-                    f" <span style='color:#fb923c;font-size:0.7rem'>⚠️{p['status']}</span>"
-                    if p["status"] != "ACTIVE"
-                    else ""
-                )
-                split = (
-                    " <span style='color:#fbbf24;font-size:0.7rem'>⚡ sources split</span>"
-                    if p["disagree"]
-                    else ""
-                )
-                espn_txt = p["espn"] if p["espn"] is not None else "—"
-                slp_txt = p["sleeper"] if p["sleeper"] is not None else "—"
+                if i < n_start:
+                    verdict = "<span style='color:#34d399;font-weight:700'>START</span>"
+                elif flex_pick and p["name"] == flex_pick["name"]:
+                    verdict = "<span style='color:#38bdf8;font-weight:700'>FLEX</span>"
+                else:
+                    verdict = "<span style='color:#7d8590'>bench</span>"
+                render_player(p, verdict)
+
+    # ---- Trade Evaluator ----
+    st.markdown("<div class='sec-head'>Trade Evaluator</div>", unsafe_allow_html=True)
+    from trades import evaluate_trade, recommend_trade
+
+    if not st.session_state.get("all_rosters"):
+        st.markdown(
+            "<span class='rank-num'>Click 'Load all rosters' above first.</span>",
+            unsafe_allow_html=True,
+        )
+    else:
+        rosters = st.session_state.all_rosters
+        my_team_name = active_team["team_name"]
+        my_roster = next(
+            (
+                r["players"]
+                for r in rosters
+                if my_team_name.lower() in r["team"].lower()
+            ),
+            [],
+        )
+        other_teams = [
+            r for r in rosters if my_team_name.lower() not in r["team"].lower()
+        ]
+
+        if other_teams:
+            partner_name = st.selectbox(
+                "Trade with which team?",
+                options=[r["team"] for r in other_teams],
+                key="trade_partner",
+            )
+            partner = next(r for r in other_teams if r["team"] == partner_name)
+
+            # --- Manual trade builder ---
+            c1, c2 = st.columns(2)
+            with c1:
                 st.markdown(
-                    f"{badge(p['position'])} <span style='color:#ffffff'>{p['name']}</span> "
-                    f"<span class='rank-num'>{p['team']}</span> · "
-                    f"<span class='mono'>{p['consensus']} pts</span> "
-                    f"<span class='rank-num'>(ESPN {espn_txt} · Slp {slp_txt})</span> · "
-                    f"{verdict}{split}{inj}",
+                    "<span class='mono'>You give:</span>", unsafe_allow_html=True
+                )
+                give = st.multiselect(
+                    "Give",
+                    options=[p["name"] for p in my_roster],
+                    label_visibility="collapsed",
+                    key="trade_give",
+                )
+            with c2:
+                st.markdown(
+                    "<span class='mono'>You get:</span>", unsafe_allow_html=True
+                )
+                get = st.multiselect(
+                    "Get",
+                    options=[p["name"] for p in partner["players"]],
+                    label_visibility="collapsed",
+                    key="trade_get",
+                )
+
+            if give or get:
+                result = evaluate_trade(give, get)
+                color = (
+                    "#34d399"
+                    if result["diff"] > 5
+                    else "#f87171"
+                    if result["diff"] < -5
+                    else "#fbbf24"
+                )
+                st.markdown(
+                    f"<div style='background:#0d1420;border-left:3px solid {color};"
+                    f"border-radius:8px;padding:12px;margin-top:8px'>"
+                    f"<span style='color:{color};font-weight:700'>{result['verdict']}</span> "
+                    f"<span class='mono'>(net VOR {result['diff']:+})</span><br>"
+                    f"<span class='rank-num'>You give {result['give_vor']} VOR · "
+                    f"You get {result['get_vor']} VOR</span></div>",
                     unsafe_allow_html=True,
                 )
 
-    # ---- Trade Evaluator (coming after your draft) ----
-    st.markdown("<div class='sec-head'>Trade Evaluator</div>", unsafe_allow_html=True)
-    st.markdown(
-        "<span class='rank-num'>Unlocks after your draft — weighs value on each "
-        "side of a proposed trade.</span>",
-        unsafe_allow_html=True,
-    )
+            # --- Trade recommendations for this team ---
+            st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
+            if st.button(f"Suggest trades with {partner_name}"):
+                st.session_state.trade_recs = recommend_trade(
+                    my_roster, partner["players"]
+                )
 
+            if st.session_state.get("trade_recs") is not None:
+                recs = st.session_state.trade_recs
+                if not recs:
+                    st.markdown(
+                        "<span class='rank-num'>No clear mutually-beneficial trade found — "
+                        "your needs and theirs don't line up right now.</span>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        "<span class='mono'>Suggested trades (most balanced first):</span>",
+                        unsafe_allow_html=True,
+                    )
+                    for r in recs[:3]:
+                        fair_color = (
+                            "#34d399"
+                            if r["fairness"] <= 8
+                            else "#fbbf24"
+                            if r["fairness"] <= 20
+                            else "#f87171"
+                        )
+                        fair_label = (
+                            "Fair"
+                            if r["fairness"] <= 8
+                            else "Slightly uneven"
+                            if r["fairness"] <= 20
+                            else "Uneven"
+                        )
+                        st.markdown(
+                            f"<div style='background:#0d1420;border-left:3px solid {fair_color};"
+                            f"border-radius:8px;padding:10px;margin:6px 0'>"
+                            f"<span style='color:#ffffff'>Give <b>{r['give']}</b> "
+                            f"({r['give_pos']}, {r['give_vor']} VOR)</span><br>"
+                            f"<span style='color:#ffffff'>Get <b>{r['get']}</b> "
+                            f"({r['get_pos']}, {r['get_vor']} VOR)</span><br>"
+                            f"<span style='color:{fair_color};font-size:0.78rem'>{fair_label} "
+                            f"(net {r['diff']:+} VOR)</span></div>",
+                            unsafe_allow_html=True,
+                        )
     # ---- Player Stat History (from the database) ----
     st.markdown(
         "<div class='sec-head'>Player Stat History</div>", unsafe_allow_html=True
