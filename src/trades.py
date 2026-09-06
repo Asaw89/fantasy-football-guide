@@ -107,3 +107,17 @@ def recommend_trade(my_players, their_players):
     # Sort by fairness (most balanced first)
     suggestions.sort(key=lambda x: x["fairness"])
     return suggestions
+
+
+def scan_all_teams(my_players, all_rosters, my_team_name):
+    """Run recommend_trade against every other team, return the best opportunities."""
+    opportunities = []
+    for roster in all_rosters:
+        if my_team_name.lower() in roster["team"].lower():
+            continue  # skip my own team
+        recs = recommend_trade(my_players, roster["players"])
+        for r in recs:
+            opportunities.append({**r, "team": roster["team"]})
+    # Sort by fairness (most balanced trades first)
+    opportunities.sort(key=lambda x: x["fairness"])
+    return opportunities
