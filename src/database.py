@@ -66,6 +66,19 @@ def init_db():
             PRIMARY KEY (player_id, season, week)
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS matchups (
+            league_id    TEXT,
+            season       INTEGER,
+            week         INTEGER,
+            team_a       TEXT,
+            team_b       TEXT,
+            score_a      REAL,
+            score_b      REAL,
+            winner       TEXT,
+            PRIMARY KEY (league_id, season, week, team_a, team_b)
+        )
+    """)
 
     cur.execute(
         "CREATE INDEX IF NOT EXISTS idx_pgs_player ON player_game_stats(player_id)"

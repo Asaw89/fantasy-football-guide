@@ -271,6 +271,62 @@ def render_season_mode(load_waivers):
                 key="trade_partner",
             )
             partner = next(r for r in other_teams if r["team"] == partner_name)
+            # --- Scan ALL teams for the best trade opportunities ---
+            st.markdown("<div style='margin-top:16px'></div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div class='sec-head'>Best Trade Targets · League-Wide</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("Scan all teams for trades"):
+                from trades import scan_all_teams
+
+                st.session_state.all_trade_opps = scan_all_teams(
+                    my_roster, rosters, my_team_name
+                )
+
+            if st.session_state.get("all_trade_opps") is not None:
+                opps = st.session_state.all_trade_opps
+                if not opps:
+                    st.markdown(
+                        "<span class='rank-num'>No mutually-beneficial trades found across "
+                        "the league right now — your roster is balanced, or no one's needs "
+                        "line up with yours.</span>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f"<span class='mono'>Found {len(opps)} opportunities "
+                        f"(most balanced first):</span>",
+                        unsafe_allow_html=True,
+                    )
+                    for o in opps[:8]:
+                        fair_color = (
+                            "#34d399"
+                            if o["fairness"] <= 8
+                            else "#fbbf24"
+                            if o["fairness"] <= 20
+                            else "#f87171"
+                        )
+                        fair_label = (
+                            "Fair"
+                            if o["fairness"] <= 8
+                            else "Slightly uneven"
+                            if o["fairness"] <= 20
+                            else "Uneven"
+                        )
+                        st.markdown(
+                            f"<div style='background:#0d1420;border-left:3px solid {fair_color};"
+                            f"border-radius:8px;padding:10px;margin:6px 0'>"
+                            f"<span style='color:#00e0a4;font-weight:700;font-size:0.8rem'>"
+                            f"with {o['team']}</span><br>"
+                            f"<span style='color:#ffffff'>Give <b>{o['give']}</b> "
+                            f"({o['give_pos']}, {o['give_vor']} VOR)</span><br>"
+                            f"<span style='color:#ffffff'>Get <b>{o['get']}</b> "
+                            f"({o['get_pos']}, {o['get_vor']} VOR)</span><br>"
+                            f"<span style='color:{fair_color};font-size:0.78rem'>{fair_label} "
+                            f"(net {o['diff']:+} VOR)</span></div>",
+                            unsafe_allow_html=True,
+                        )
 
             # --- Manual trade builder ---
             c1, c2 = st.columns(2)
@@ -360,6 +416,46 @@ def render_season_mode(load_waivers):
                             f"(net {r['diff']:+} VOR)</span></div>",
                             unsafe_allow_html=True,
                         )
+
+    # ---- Matchup Preview (WWE style) ----
+    st.markdown("<div class='sec-head'>⚔️ Matchup Preview</div>", unsafe_allow_html=True)
+    if not st.session_state.get("all_rosters"):
+        st.markdown(
+            "<span class='rank-num'>Click 'Load all rosters' above first.</span>",
+            unsafe_allow_html=True,
+        )
+    else:
+        rosters = st.session_state.all_rosters
+        team_names = [r["team"] for r in rosters]
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            team_a = st.selectbox("Team 1", options=team_names, key="preview_a")
+        with mc2:
+            team_b = st.selectbox(
+                "Team 2",
+                options=team_names,
+                index=min(1, len(team_names) - 1),
+                key="preview_b",
+            )
+
+        if st.button("🎤 Hype the matchup!") and team_a != team_b:
+            from news import matchup_preview
+
+            a = next(r for r in rosters if r["team"] == team_a)
+            b = next(r for r in rosters if r["team"] == team_b)
+            with st.spinner("Building the hype..."):
+                st.session_state.preview = matchup_preview(
+                    team_a, a["players"], team_b, b["players"]
+                )
+
+        if st.session_state.get("preview"):
+            st.markdown(
+                f"<div style='background:linear-gradient(90deg,rgba(0,224,164,0.1),"
+                f"rgba(248,113,113,0.1));border-radius:10px;padding:16px;"
+                f"font-size:0.95rem;line-height:1.6;color:#ffffff'>"
+                f"{st.session_state.preview}</div>",
+                unsafe_allow_html=True,
+            )
     # ---- Player Stat History (from the database) ----
     st.markdown(
         "<div class='sec-head'>Player Stat History</div>", unsafe_allow_html=True

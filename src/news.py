@@ -134,5 +134,48 @@ def get_top_stories(my_players=None):
     return stories
 
 
+def matchup_preview(team_a_name, team_a_players, team_b_name, team_b_players):
+    """Generate a WWE-style hype preview of two fantasy teams facing off."""
+
+    def summarize(name, players):
+        # Sort by projection, identify stars and weak spots
+        ranked = sorted(players, key=lambda p: p.get("proj", 0), reverse=True)
+        stars = ranked[:3]
+        weak = [
+            p
+            for p in ranked
+            if p.get("proj", 0) < 6 or p.get("status", "ACTIVE") != "ACTIVE"
+        ]
+        star_txt = ", ".join(
+            f"{p['name']} ({p['position']}, proj {p.get('proj', 0)})" for p in stars
+        )
+        weak_txt = (
+            ", ".join(f"{p['name']} ({p['position']})" for p in weak[:3])
+            or "no glaring weaknesses"
+        )
+        return f"{name} — Superstars: {star_txt}. Vulnerabilities: {weak_txt}."
+
+    a_summary = summarize(team_a_name, team_a_players)
+    b_summary = summarize(team_b_name, team_b_players)
+
+    prompt = (
+        "You're a WWE ring announcer hyping a championship showdown between two fantasy "
+        "football teams. Write a short, theatrical, over-the-top preview (4-6 sentences). "
+        "Use the REAL players and projections given — name the superstars, hype their "
+        "matchup, and call out each team's weakness dramatically as the key to their "
+        "potential downfall. Bombastic wrestling-promo energy, but grounded in these facts:\n\n"
+        f"TEAM A — {a_summary}\n"
+        f"TEAM B — {b_summary}\n\n"
+        "Make it fun and specific to these players. End with a dramatic prediction."
+    )
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "\n".join(b.text for b in response.content if b.type == "text").strip()
+
+
 if __name__ == "__main__":
     print(get_player_news("Christian McCaffrey", "SF", "RB"))
