@@ -57,6 +57,7 @@ def ingest_week(season, week, verbose=False):
         if not pid:
             continue
         team = info.get("team")
+        opp = rec.get("opponent")
         name = f"{info.get('first_name', '')} {info.get('last_name', '')}".strip()
         pos = info.get("position")
 
@@ -87,7 +88,7 @@ def ingest_week(season, week, verbose=False):
         cur.execute(
             """
             INSERT OR REPLACE INTO player_game_stats (
-                player_id, season, week, team, position,
+                player_id, season, week, team, opponent, position,
                 pts_ppr, pts_half_ppr, pts_std,
                 snaps, team_snaps, snap_share,
                 rush_att, rush_yd, rush_td, rush_rz_att, rush_yac, rush_btkl,
@@ -95,13 +96,14 @@ def ingest_week(season, week, verbose=False):
                 rec_rz_tgt, rec_air_yd, air_yard_share, rec_yar,
                 pass_att, pass_yd, pass_td, pass_int, pass_air_yd, pass_rz_att,
                 gp, raw_json
-            ) VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?, ?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?, ?,?)
         """,
             (
                 pid,
                 season,
                 week,
                 team,
+                opp,
                 pos,
                 _num(stats, "pts_ppr"),
                 _num(stats, "pts_half_ppr"),

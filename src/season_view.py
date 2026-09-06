@@ -3,6 +3,12 @@ from helpers import badge, espn_photo
 from teams import TEAMS, get_my_roster
 from teams import get_league_for
 from helpers import badge
+from teams import TEAMS, get_my_roster, get_league_for
+from sleeper_proj import get_weekly_projections, _normalize
+from helpers import badge
+from collections import defaultdict
+from config import POS_COLORS
+import os
 
 
 def render_season_mode(load_waivers):
@@ -18,7 +24,7 @@ def render_season_mode(load_waivers):
     )
     active_team = next(t for t in TEAMS if t["label"] == chosen_label)
 
-    # ---- League Roster Overview ----
+    # ---- League Roster Overview (grid layout) ----
     st.markdown("<div class='sec-head'>League Rosters</div>", unsafe_allow_html=True)
     if st.button("Load all rosters"):
         with st.spinner("Loading league rosters..."):
@@ -35,14 +41,30 @@ def render_season_mode(load_waivers):
             ]
 
     if st.session_state.get("all_rosters"):
-        from helpers import badge
+        rosters = st.session_state.all_rosters
+        cols_per_row = 3  # 3 teams across — change to 2 or 4 to taste
 
-        for team in st.session_state.all_rosters:
-            with st.expander(f"🏈 {team['team']} ({len(team['players'])} players)"):
-                for p in team["players"]:
+        # Render teams in rows of `cols_per_row`
+        for row_start in range(0, len(rosters), cols_per_row):
+            row_teams = rosters[row_start : row_start + cols_per_row]
+            cols = st.columns(cols_per_row)
+            for col, team in zip(cols, row_teams):
+                with col:
                     st.markdown(
-                        f"{badge(p['position'])} <span style='color:#ffffff'>{p['name']}</span> "
-                        f"<span class='rank-num'>{p['team']}</span>",
+                        f"<div style='background:#0d1420;border:1px solid #1f2a3a;"
+                        f"border-radius:8px;padding:10px;margin-bottom:8px'>"
+                        f"<div style='color:#00e0a4;font-weight:700;font-size:0.85rem;"
+                        f"border-bottom:1px solid #1f2a3a;padding-bottom:4px;margin-bottom:6px'>"
+                        f"{team['team']}</div>"
+                        + "".join(
+                            f"<div style='font-size:0.72rem;margin:2px 0'>"
+                            f"<span style='color:{POS_COLORS.get(p['position'], '#94a3b8')};"
+                            f"font-weight:600'>{p['position']}</span> "
+                            f"<span style='color:#ffffff'>{p['name']}</span> "
+                            f"<span style='color:#4d5866'>{p['team']}</span></div>"
+                            for p in team["players"]
+                        )
+                        + "</div>",
                         unsafe_allow_html=True,
                     )
 
@@ -104,9 +126,6 @@ def render_season_mode(load_waivers):
     st.markdown("<div class='sec-head'>Start / Sit</div>", unsafe_allow_html=True)
 
     if st.button("Get start/sit advice"):
-        from teams import get_league_for
-        from sleeper_proj import get_weekly_projections, _normalize
-
         with st.spinner("Blending ESPN + Sleeper projections..."):
             league = get_league_for(active_team)
             wk = league.current_week
@@ -151,9 +170,6 @@ def render_season_mode(load_waivers):
             st.session_state.startsit = {"week": wk, "lineup": lineup}
 
     if st.session_state.get("startsit"):
-        from helpers import badge
-        from collections import defaultdict
-
         data = st.session_state.startsit
         st.markdown(
             f"<span class='mono'>Week {data['week']} · ESPN + Sleeper consensus</span>",
@@ -215,7 +231,6 @@ def render_season_mode(load_waivers):
     st.markdown(
         "<div class='sec-head'>Player Stat History</div>", unsafe_allow_html=True
     )
-    from database import get_player_stats
 
     stat_name = st.text_input(
         "Look up historical game stats",

@@ -20,7 +20,8 @@ def init_db():
             player_id   TEXT PRIMARY KEY,
             name        TEXT,
             position    TEXT,
-            team        TEXT
+            team        TEXT,
+            opponent    TEXT
         )
     """)
 
@@ -30,6 +31,7 @@ def init_db():
             season          INTEGER,
             week            INTEGER,
             team            TEXT,
+            opponent        TEXT,
             position        TEXT,
             pts_ppr         REAL,
             pts_half_ppr    REAL,
