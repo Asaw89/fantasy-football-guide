@@ -138,13 +138,19 @@ def matchup_preview(team_a_name, team_a_players, team_b_name, team_b_players):
     """Generate a WWE-style hype preview of two fantasy teams facing off."""
 
     def summarize(name, players):
-        # Sort by projection, identify stars and weak spots
-        ranked = sorted(players, key=lambda p: p.get("proj", 0), reverse=True)
+        starters = [p for p in players if p.get("slot") not in ("BE", "IR", "")]
+        if not starters:
+            starters = players
+        ranked = sorted(starters, key=lambda p: p.get("proj", 0), reverse=True)
+        total = round(sum(p.get("proj", 0) for p in starters), 1)  # team total
         stars = ranked[:3]
+        # Only flag weak spots among skill positions — D/ST and K always project
+        # low and shouldn't be judged as "weak" by raw projection
         weak = [
             p
             for p in ranked
-            if p.get("proj", 0) < 6 or p.get("status", "ACTIVE") != "ACTIVE"
+            if p["position"] not in ("D/ST", "K", "DEF")
+            and (p.get("proj", 0) < 6 or p.get("status", "ACTIVE") != "ACTIVE")
         ]
         star_txt = ", ".join(
             f"{p['name']} ({p['position']}, proj {p.get('proj', 0)})" for p in stars
@@ -153,7 +159,7 @@ def matchup_preview(team_a_name, team_a_players, team_b_name, team_b_players):
             ", ".join(f"{p['name']} ({p['position']})" for p in weak[:3])
             or "no glaring weaknesses"
         )
-        return f"{name} — Superstars: {star_txt}. Vulnerabilities: {weak_txt}."
+        return f"{name} (projected total {total}) — Superstars: {star_txt}. Vulnerabilities: {weak_txt}."
 
     a_summary = summarize(team_a_name, team_a_players)
     b_summary = summarize(team_b_name, team_b_players)
@@ -161,12 +167,13 @@ def matchup_preview(team_a_name, team_a_players, team_b_name, team_b_players):
     prompt = (
         "You're a WWE ring announcer hyping a championship showdown between two fantasy "
         "football teams. Write a short, theatrical, over-the-top preview (4-6 sentences). "
-        "Use the REAL players and projections given — name the superstars, hype their "
-        "matchup, and call out each team's weakness dramatically as the key to their "
-        "potential downfall. Bombastic wrestling-promo energy, but grounded in these facts:\n\n"
+        "Use the REAL players, projections, and TEAM TOTALS given — name the superstars, "
+        "hype their matchup, and call out each team's weakness dramatically. When you "
+        "predict a winner, base the margin on the actual projected totals given (don't "
+        "invent a different margin). Bombastic wrestling-promo energy, grounded in these facts:\n\n"
         f"TEAM A — {a_summary}\n"
         f"TEAM B — {b_summary}\n\n"
-        "Make it fun and specific to these players. End with a dramatic prediction."
+        "Make it fun and specific. End with a dramatic prediction using the real projected margin."
     )
 
     response = client.messages.create(

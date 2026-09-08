@@ -29,17 +29,27 @@ def render_season_mode(load_waivers):
     if st.button("Load all rosters"):
         with st.spinner("Loading league rosters..."):
             league = get_league_for(active_team)
+            wk = league.current_week
             st.session_state.all_rosters = [
                 {
                     "team": t.team_name,
                     "players": [
-                        {"name": p.name, "position": p.position, "team": p.proTeam}
+                        {
+                            "name": p.name,
+                            "position": p.position,
+                            "team": p.proTeam,
+                            "proj": round(p.stats[wk]["projected_points"], 1)
+                            if wk in getattr(p, "stats", {})
+                            and "projected_points" in p.stats[wk]
+                            else 0,
+                            "status": getattr(p, "injuryStatus", "ACTIVE"),
+                            "slot": getattr(p, "lineupSlot", ""),
+                        }
                         for p in t.roster
                     ],
                 }
                 for t in league.teams
             ]
-
     if st.session_state.get("all_rosters"):
         rosters = st.session_state.all_rosters
         cols_per_row = 3  # 3 teams across — change to 2 or 4 to taste
@@ -87,39 +97,59 @@ def render_season_mode(load_waivers):
                 f"<span class='rank-num'>{p['team']}</span>",
                 unsafe_allow_html=True,
             )
-    # ---- Waiver Targets (live from ESPN) ----
+    # ---- Waiver Targets (live from ESPN, active team's league) ----
     st.markdown(
         "<div class='sec-head'>Waiver Targets · Live</div>", unsafe_allow_html=True
     )
-
     if st.button("Load waiver targets", type="primary"):
+        from waivers import get_waiver_targets
+
         try:
-            st.session_state.waivers = load_waivers()
+            league = get_league_for(active_team)
+            st.session_state.waivers = get_waiver_targets(
+                league, active_team["team_name"], size=40
+            )
         except Exception as e:
             st.session_state.waivers = None
             st.error(f"Couldn't reach ESPN: {e}")
 
     if st.session_state.get("waivers"):
+        from helpers import badge, espn_photo
+
         for i, t in enumerate(st.session_state.waivers[:25], start=1):
-            c = st.columns([0.4, 0.7, 3, 1.3, 1.6, 1.4], vertical_alignment="center")
+            c = st.columns([0.4, 0.7, 3, 1.3, 1.8, 1.4], vertical_alignment="center")
             c[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
             photo = espn_photo(t.get("player_id"))
             if photo:
                 c[1].image(photo, width=45)
-            name_html = f"<span style='color:#ffffff;font-weight:600;'>{t['name']}</span> <span class='rank-num'>{t['team']}</span>"
+            name_html = (
+                f"<span style='color:#ffffff;font-weight:600;'>{t['name']}</span> "
+                f"<span class='rank-num'>{t['team']}</span>"
+            )
             if t["status"] != "ACTIVE":
                 name_html += f" <span style='color:#fb923c;font-size:0.75rem'>⚠️ {t['status']}</span>"
             c[2].markdown(name_html, unsafe_allow_html=True)
             c[3].markdown(badge(t["position"]), unsafe_allow_html=True)
             c[4].markdown(
-                f"<span class='mono'>proj {t['proj']}</span>", unsafe_allow_html=True
+                f"<span class='mono'>wk {t['proj']}</span> "
+                f"<span class='rank-num'>· szn {t.get('season', '—')}</span>",
+                unsafe_allow_html=True,
             )
             need = (
                 "<span style='color:#34d399;font-size:0.75rem'>★ NEED</span>"
                 if t["fills_need"]
                 else ""
             )
-            c[5].markdown(need, unsafe_allow_html=True)
+            flags = ""
+            if t.get("is_handcuff"):
+                flags += (
+                    "<span style='background:#c084fc22;color:#c084fc;"
+                    "border:1px solid #c084fc66;font-size:0.62rem;font-weight:700;"
+                    "border-radius:4px;padding:1px 5px'>🔗 HANDCUFF</span> "
+                )
+            if t["fills_need"]:
+                flags += "<span style='color:#34d399;font-size:0.75rem'>★ NEED</span>"
+            c[5].markdown(flags, unsafe_allow_html=True)
 
     # ---- Start / Sit (ESPN + Sleeper consensus, FLEX-aware) ----
     st.markdown("<div class='sec-head'>Start / Sit</div>", unsafe_allow_html=True)

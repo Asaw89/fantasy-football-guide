@@ -16,35 +16,71 @@ def get_league():
     )
 
 
-def get_waiver_targets(league, my_team_name="", size=50, position=None):
-    """Rank available free agents by projected value, flagging needs and injuries."""
-    fas = league.free_agents(size=size, position=position)
+STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
 
-    # Figure out my roster needs (empty until you've drafted)
+
+def get_waiver_targets(league, my_team_name="", size=50, position=None):
+    """Rank free agents by your team's actual need — injuries and thin spots —
+    and flag likely handcuffs (same-team replacements for injured players)."""
+    fas = league.free_agents(size=size, position=position)
+    wk = league.current_week
+
+    # Analyze MY roster: what positions am I thin at, and who's injured?
     my_team = next(
         (t for t in league.teams if my_team_name.lower() in t.team_name.lower()), None
     )
-    my_positions = [p.position for p in my_team.roster] if my_team else []
-    counts = {pos: my_positions.count(pos) for pos in STARTERS}
-    needs = {pos: max(0, STARTERS[pos] - counts.get(pos, 0)) for pos in STARTERS}
+    my_positions = []
+    injured_teams_by_pos = {}  # {position: set of NFL teams where my starter is hurt}
+    if my_team:
+        for p in my_team.roster:
+            my_positions.append(p.position)
+            status = getattr(p, "injuryStatus", "ACTIVE")
+            if status not in ("ACTIVE", "NORMAL", None):
+                injured_teams_by_pos.setdefault(p.position, set()).add(p.proTeam)
+
+    from collections import Counter
+
+    counts = Counter(my_positions)
+    # Need score per position: how short of a healthy starting count am I?
+    need_level = {}
+    for pos, req in STARTERS.items():
+        have = counts.get(pos, 0)
+        injured_here = len(injured_teams_by_pos.get(pos, set()))
+        # thin if below starter requirement; urgent if a starter is injured
+        thin = max(0, req - (have - injured_here))
+        need_level[pos] = thin + (injured_here * 2)  # injury weighted heavier
 
     targets = []
     for p in fas:
-        proj = getattr(p, "projected_total_points", 0) or 0
+        stats = getattr(p, "stats", {})
+        weekly = 0
+        if wk in stats and "projected_points" in stats[wk]:
+            weekly = round(stats[wk]["projected_points"], 1)
+        season = round(getattr(p, "projected_total_points", 0) or 0, 1)
         status = getattr(p, "injuryStatus", "ACTIVE")
-        fills_need = needs.get(p.position, 0) > 0
-        # Rank score: projection, boosted if it fills a starting need
-        score = proj + (25 if fills_need else 0)
+
+        pos_need = need_level.get(p.position, 0)
+        fills_need = pos_need > 0
+
+        # Handcuff flag: this free agent is at a position where my starter is
+        # injured AND plays for the same NFL team as my injured player
+        is_handcuff = p.proTeam in injured_teams_by_pos.get(p.position, set())
+
+        # Ranking score: weekly projection, boosted by need and handcuff status
+        score = weekly + (pos_need * 15) + (25 if is_handcuff else 0)
+
         targets.append(
             {
                 "name": p.name,
                 "player_id": getattr(p, "playerId", None),
                 "position": p.position,
                 "team": p.proTeam,
-                "proj": round(proj, 1),
+                "proj": weekly,
+                "season": season,
                 "owned": round(getattr(p, "percent_owned", 0), 1),
                 "status": status,
                 "fills_need": fills_need,
+                "is_handcuff": is_handcuff,
                 "score": round(score, 1),
             }
         )
