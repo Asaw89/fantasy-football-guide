@@ -1,14 +1,10 @@
+import os
 import streamlit as st
+from collections import defaultdict
 from helpers import badge, espn_photo
-from teams import TEAMS, get_my_roster
-from teams import get_league_for
-from helpers import badge
 from teams import TEAMS, get_my_roster, get_league_for
 from sleeper_proj import get_weekly_projections, _normalize
-from helpers import badge
-from collections import defaultdict
 from config import POS_COLORS
-import os
 
 
 def render_season_mode(load_waivers):
@@ -114,8 +110,6 @@ def render_season_mode(load_waivers):
             st.error(f"Couldn't reach ESPN: {e}")
 
     if st.session_state.get("waivers"):
-        from helpers import badge, espn_photo
-
         for i, t in enumerate(st.session_state.waivers[:25], start=1):
             c = st.columns([0.4, 0.7, 3, 1.3, 1.8, 1.4], vertical_alignment="center")
             c[0].markdown(f"<span class='rank-num'>{i}</span>", unsafe_allow_html=True)
