@@ -79,6 +79,7 @@ def render_season_mode(load_waivers):
         with st.spinner(f"Loading {active_team['label']}..."):
             roster, _ = get_my_roster(active_team)
             st.session_state[f"roster_{chosen_label}"] = roster
+            st.session_state.active_roster = roster
 
     roster = st.session_state.get(f"roster_{chosen_label}")
     if roster:

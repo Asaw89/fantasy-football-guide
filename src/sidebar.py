@@ -1,5 +1,6 @@
 import streamlit as st
 from collections import Counter as _C
+from news import ask_question
 from config import STARTERS, BENCH_SPOTS
 from helpers import badge, sleeper_photo
 
@@ -76,8 +77,13 @@ def render_sidebar(board, my_roster, needs, load_top_stories, cached_news, reset
                         )
 
         # ---- Ask the Analyst ----
+        analyst_label = (
+            "Ask the In-Season Analyst"
+            if mode == "In-Season"
+            else "Ask the Draft Analyst"
+        )
         st.markdown(
-            "<div class='sec-head'>Ask the Analyst</div>", unsafe_allow_html=True
+            f"<div class='sec-head'>{analyst_label}</div>", unsafe_allow_html=True
         )
         user_q = st.text_input(
             "Ask a fantasy question",
@@ -85,19 +91,22 @@ def render_sidebar(board, my_roster, needs, load_top_stories, cached_news, reset
             placeholder="e.g. Should I start my WR2 this week?",
         )
         if st.button("Ask", use_container_width=True) and user_q:
-            from news import ask_question
-
             picks_made = len(st.session_state.drafted)
             size = st.session_state.get("league_size", 10)
+            if mode == "In-Season":
+                roster_for_analyst = st.session_state.get("active_roster", [])
+            else:
+                roster_for_analyst = st.session_state.my_roster
             with st.spinner("Thinking..."):
                 st.session_state.answer = ask_question(
                     user_q,
                     league_size=size,
                     scoring=st.session_state.get("scoring", "PPR"),
-                    my_roster=st.session_state.my_roster,
+                    my_roster=roster_for_analyst,
                     taken=st.session_state.drafted,
                     round_num=picks_made // size + 1,
                     pick_in_round=picks_made % size + 1,
+                    mode=mode,
                 )
 
         # Analyst answer

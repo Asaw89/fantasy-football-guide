@@ -48,43 +48,52 @@ def ask_question(
     taken=None,
     round_num=None,
     pick_in_round=None,
+    mode="Draft",
 ):
-    """Answer a fantasy question with real draft-strategy reasoning."""
+    """Answer a fantasy question — draft strategy or in-season management
+    depending on mode."""
     from collections import Counter
 
-    # Summarize roster construction by position
     roster_text = "nobody yet"
     pos_counts = {}
     if my_roster:
         pos_counts = dict(Counter(p["position"] for p in my_roster))
         roster_text = ", ".join(f"{p['name']} ({p['position']})" for p in my_roster)
-
     construction = ", ".join(f"{n} {pos}" for pos, n in pos_counts.items()) or "empty"
 
-    where = ""
-    if round_num and pick_in_round:
-        where = f"You are at Round {round_num}, Pick {pick_in_round}. "
+    if mode == "In-Season":
+        prompt = (
+            "You're a sharp, energetic fantasy football analyst helping someone manage "
+            "their team DURING the season — confident, opinionated, grounded in real "
+            f"reasoning. Setting: a {league_size}-team {scoring} league.\n\n"
+            f"Their current roster: {roster_text}\n"
+            f"Positional makeup: {construction}\n\n"
+            "Give in-season management advice: start/sit calls, waiver-wire targets, "
+            "trade ideas, matchup exploitation, and roster streaming. Consider weekly "
+            "matchups, injuries, and rest-of-season value. Be decisive and specific to "
+            "their roster. Answer in 4-6 sentences. Search the web if you need current "
+            "player news, injuries, or matchup info.\n\n"
+            f"Question: {question}"
+        )
+    else:  # Draft mode
+        where = ""
+        if round_num and pick_in_round:
+            where = f"They're at Round {round_num}, Pick {pick_in_round}. "
+        picks_gone = f"{len(taken)} players drafted overall. " if taken else ""
+        prompt = (
+            "You're a sharp, energetic fantasy draft analyst — confident, opinionated, "
+            f"grounded in real strategy. Setting: a {league_size}-team {scoring} draft.\n\n"
+            f"DRAFT SITUATION:\n- {where}{picks_gone}\n"
+            f"- Their roster so far: {roster_text}\n"
+            f"- Positional construction: {construction}\n\n"
+            "Use real draft-strategy frameworks and name them when relevant: Zero RB, "
+            "Hero RB, Robust RB, late-round QB, streaming/early TE. Consider positional "
+            "scarcity, roster balance, and value. Tell them which position to prioritize "
+            "and why, with a decisive take. Answer in 4-6 sentences. Search the web only "
+            "if you need current player info.\n\n"
+            f"Question: {question}"
+        )
 
-    picks_gone = f"{len(taken)} players have been drafted overall. " if taken else ""
-
-    prompt = (
-        f"You're a sharp, energetic fantasy draft analyst — confident, opinionated, "
-        f"but grounded in real strategy. Setting: a {league_size}-team {scoring} draft.\n\n"
-        f"DRAFT SITUATION:\n"
-        f"- {where}{picks_gone}\n"
-        f"- The person's roster so far: {roster_text}\n"
-        f"- Positional construction: {construction}\n\n"
-        f"Use real draft-strategy frameworks in your reasoning and name them when "
-        f"relevant: Zero RB (load WRs early, running backs late), Hero RB (one elite "
-        f"RB then hammer WR), Robust RB (RBs early), late-round QB, and streaming/"
-        f"early TE approaches. Consider positional scarcity, roster balance, what's "
-        f"likely to fall to their next pick, and value at {scoring} scoring. "
-        f"Given their current construction and draft position, tell them which "
-        f"position to prioritize NOW and why — with a clear, decisive take. "
-        f"If they should wait on a position (like QB or TE), say so and explain. "
-        f"Answer in 4-6 sentences. Search the web only if you need current player info.\n\n"
-        f"Question: {question}"
-    )
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=600,
