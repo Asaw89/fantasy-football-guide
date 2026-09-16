@@ -491,7 +491,7 @@ def render_season_mode(load_waivers):
     with sc1:
         stat_name = st.text_input(
             "Look up game stats",
-            placeholder="e.g. George Kittle",
+            placeholder="e.g. Josh Allen",
             key="stat_lookup",
         )
     with sc2:
@@ -506,24 +506,85 @@ def render_season_mode(load_waivers):
         season_arg = None if stat_season == "All" else int(stat_season)
         rows = get_player_stats(stat_name, season=season_arg)
         if rows:
+            # Determine position from the data (look it up from the player)
+            from database import get_connection
+
+            conn = get_connection()
+            pos_row = conn.execute(
+                "SELECT position FROM players WHERE LOWER(name) = LOWER(?)",
+                (stat_name.strip(),),
+            ).fetchone()
+            conn.close()
+            position = pos_row["position"] if pos_row else None
+
+            # Columns to show per position (always start with the basics)
+            base_cols = ["season", "week", "team", "pts_ppr"]
+            if position == "QB":
+                show_cols = base_cols + [
+                    "pass_att",
+                    "pass_yd",
+                    "pass_td",
+                    "pass_int",
+                    "rush_att",
+                    "rush_yd",
+                    "rush_td",
+                ]
+            elif position == "RB":
+                show_cols = base_cols + [
+                    "snap_share",
+                    "rush_att",
+                    "rush_yd",
+                    "rush_td",
+                    "targets",
+                    "rec",
+                    "rec_yd",
+                    "rec_td",
+                ]
+            elif position in ("WR", "TE"):
+                show_cols = base_cols + [
+                    "snap_share",
+                    "targets",
+                    "target_share",
+                    "rec",
+                    "rec_yd",
+                    "rec_td",
+                    "air_yard_share",
+                ]
+            else:
+                show_cols = base_cols  # K, DEF, unknown — just the basics
+
+            # Filter each row to only the relevant columns
+            filtered = [{c: r.get(c) for c in show_cols if c in r} for r in rows]
+
+            # Summary line (position-aware)
             seasons = sorted({r["season"] for r in rows})
-            avg_snap = round(
-                sum(r["snap_share"] or 0 for r in rows) / len(rows) * 100, 1
-            )
-            avg_tgt = round(
-                sum(r["target_share"] or 0 for r in rows) / len(rows) * 100, 1
-            )
             season_label = (
                 str(stat_season)
                 if stat_season != "All"
                 else ", ".join(map(str, seasons))
             )
-            st.markdown(
-                f"<span class='mono'>{len(rows)} games · {season_label} · "
-                f"avg snap {avg_snap}% · avg target share {avg_tgt}%</span>",
-                unsafe_allow_html=True,
-            )
-            st.dataframe(rows, use_container_width=True)
+            if position == "QB":
+                avg_pass = round(
+                    sum(r.get("pass_yd", 0) or 0 for r in rows) / len(rows), 1
+                )
+                summary = (
+                    f"{len(rows)} games · {season_label} · avg pass yds {avg_pass}"
+                )
+            else:
+                avg_snap = round(
+                    sum(r.get("snap_share", 0) or 0 for r in rows) / len(rows) * 100, 1
+                )
+                avg_tgt = round(
+                    sum(r.get("target_share", 0) or 0 for r in rows) / len(rows) * 100,
+                    1,
+                )
+                summary = (
+                    f"{len(rows)} games · {season_label} · "
+                    f"avg snap {avg_snap}% · avg target share {avg_tgt}%"
+                )
+
+            st.markdown(f"<span class='mono'>{summary}</span>", unsafe_allow_html=True)
+            st.dataframe(filtered, use_container_width=True)
         else:
             st.markdown(
                 f"<span class='rank-num'>No {stat_season} stats found for '{stat_name}'.</span>",

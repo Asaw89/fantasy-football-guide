@@ -102,7 +102,8 @@ def get_player_stats(player_name, season=None):
         SELECT s.season, s.week, s.team, s.pts_ppr,
             s.snap_share, s.target_share, s.air_yard_share,
             s.rush_att, s.rush_yd, s.rush_td,
-            s.rec, s.rec_yd, s.rec_td, s.targets
+            s.rec, s.rec_yd, s.rec_td, s.targets,
+            s.pass_att, s.pass_yd, s.pass_td, s.pass_int
         FROM player_game_stats s
         JOIN players p ON s.player_id = p.player_id
         WHERE LOWER(p.name) = LOWER(?)
