@@ -220,3 +220,4 @@ __marimo__/
 .env
 fantasy.db
 *.db
+.pytest_cache/
