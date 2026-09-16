@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from collections import defaultdict
+from database import get_player_stats
 from helpers import badge, espn_photo
 from teams import TEAMS, get_my_roster, get_league_for
 from sleeper_proj import get_weekly_projections, _normalize
@@ -486,15 +487,25 @@ def render_season_mode(load_waivers):
         "<div class='sec-head'>Player Stat History</div>", unsafe_allow_html=True
     )
 
-    stat_name = st.text_input(
-        "Look up historical game stats",
-        placeholder="e.g. Bijan Robinson",
-        key="stat_lookup",
-    )
+    sc1, sc2 = st.columns([3, 1])
+    with sc1:
+        stat_name = st.text_input(
+            "Look up game stats",
+            placeholder="e.g. George Kittle",
+            key="stat_lookup",
+        )
+    with sc2:
+        stat_season = st.selectbox(
+            "Season",
+            options=[2026, 2024, 2023, "All"],
+            index=0,
+            key="stat_season",
+        )
+
     if stat_name:
-        rows = get_player_stats(stat_name)
+        season_arg = None if stat_season == "All" else int(stat_season)
+        rows = get_player_stats(stat_name, season=season_arg)
         if rows:
-            # Quick summary above the table
             seasons = sorted({r["season"] for r in rows})
             avg_snap = round(
                 sum(r["snap_share"] or 0 for r in rows) / len(rows) * 100, 1
@@ -502,15 +513,19 @@ def render_season_mode(load_waivers):
             avg_tgt = round(
                 sum(r["target_share"] or 0 for r in rows) / len(rows) * 100, 1
             )
+            season_label = (
+                str(stat_season)
+                if stat_season != "All"
+                else ", ".join(map(str, seasons))
+            )
             st.markdown(
-                f"<span class='mono'>{len(rows)} games · {', '.join(map(str, seasons))} · "
+                f"<span class='mono'>{len(rows)} games · {season_label} · "
                 f"avg snap {avg_snap}% · avg target share {avg_tgt}%</span>",
                 unsafe_allow_html=True,
             )
             st.dataframe(rows, use_container_width=True)
         else:
             st.markdown(
-                f"<span class='rank-num'>No stats found for '{stat_name}' — "
-                f"check spelling (first + last name).</span>",
+                f"<span class='rank-num'>No {stat_season} stats found for '{stat_name}'.</span>",
                 unsafe_allow_html=True,
             )
