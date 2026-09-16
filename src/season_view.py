@@ -497,7 +497,7 @@ def render_season_mode(load_waivers):
     with sc2:
         stat_season = st.selectbox(
             "Season",
-            options=[2026, 2024, 2023, "All"],
+            options=[2026, 2025, 2024, 2023, "All"],
             index=0,
             key="stat_season",
         )
