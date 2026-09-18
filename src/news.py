@@ -7,13 +7,15 @@ client = Anthropic()  # reads ANTHROPIC_API_KEY from the environment automatical
 
 
 def get_player_news(name, team, position):
-    """Search fantasy outlets and return a summary plus its source links."""
+    """Search for current, in-season fantasy news on a player."""
     prompt = (
         f"Search for the latest fantasy football news on {name}, "
-        f"{position} for {team}. In 2-3 sentences, summarize the most important "
-        f"recent updates that matter for fantasy: injuries, depth-chart or role "
-        f"changes, or usage trends. If there's no notable recent news, say so "
-        f"briefly. Finish with a one-line bold fantasy takeaway."
+        f"{position} for {team}, RIGHT NOW during the season. In 2-3 sentences, "
+        f"summarize the most important CURRENT updates for fantasy managers this week: "
+        f"injury status, whether they're playing this week, this week's matchup, "
+        f"recent usage or role changes, and start/sit outlook. Focus on what matters "
+        f"THIS WEEK, not season-long or draft outlook. Finish with a one-line bold "
+        f"start/sit or waiver takeaway."
     )
 
     response = client.messages.create(
@@ -22,6 +24,20 @@ def get_player_news(name, team, position):
         messages=[{"role": "user", "content": prompt}],
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
     )
+
+    text_parts = [block.text for block in response.content if block.type == "text"]
+    summary = "\n".join(text_parts).strip()
+
+    sources = {}
+    for block in response.content:
+        if block.type == "text" and getattr(block, "citations", None):
+            for cite in block.citations:
+                url = getattr(cite, "url", None)
+                title = getattr(cite, "title", None) or url
+                if url:
+                    sources[url] = title
+
+    return {"summary": summary, "sources": sources}
 
     # Pull the summary text
     text_parts = [block.text for block in response.content if block.type == "text"]
@@ -105,27 +121,39 @@ def ask_question(
 
 
 def get_top_stories(my_players=None):
-    """Top stories — general if no roster, personalized to your players if you have one."""
+    """Top fantasy news — in-season focused (injuries, starts, waiver-relevant)."""
     if my_players:
-        # Personalized: news about the user's rostered players
-        names = ", ".join(my_players[:15])  # cap the list length
+        names = ", ".join(my_players[:15])
         prompt = (
-            f"Search for the latest fantasy football news specifically about these "
-            f"players on my roster: {names}. Give me the 5 most important updates "
-            f"among THESE players — injuries, role or usage changes, notable news. "
-            f"For each, respond with ONLY:\nPLAYER | headline\n"
-            f"(headline under 10 words). One per line, no numbering, no other text. "
-            f"If a player has no notable recent news, skip them."
+            f"Search for the latest fantasy football news this week about these players "
+            f"on my roster: {names}. Focus on CURRENT, in-season updates — injuries, "
+            f"this week's status, snap/target trends, or role changes. Give the 5 most "
+            f"important. For each, respond with ONLY:\nPLAYER | headline\n"
+            f"(headline under 10 words). One per line, no numbering. Skip players with no news."
         )
     else:
-        # General: top NFL/fantasy stories
         prompt = (
-            "Search for the most important fantasy football news right now. "
-            "Give me the top 5 stories that matter most for fantasy managers — "
-            "injuries, role changes, big news. For each, respond with ONLY:\n"
-            "PLAYER | headline\n"
-            "(headline under 10 words). One per line, no numbering, no other text."
+            "Search for the most important fantasy football news RIGHT NOW, in-season. "
+            "Focus on current-week developments: injuries, players who are in/out this "
+            "week, breakout performances, and waiver-wire risers. Give the top 5 stories "
+            "that matter most to fantasy managers this week. For each, respond with ONLY:\n"
+            "PLAYER | headline\n(headline under 10 words). One per line, no numbering, no other text."
         )
+
+    response = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=400,
+        messages=[{"role": "user", "content": prompt}],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+    )
+    text = "\n".join(b.text for b in response.content if b.type == "text").strip()
+
+    stories = []
+    for line in text.split("\n"):
+        if "|" in line:
+            name, headline = line.split("|", 1)
+            stories.append({"player": name.strip(), "headline": headline.strip()})
+    return stories
 
     response = client.messages.create(
         model="claude-haiku-4-5",
