@@ -18,37 +18,56 @@ def get_league():
 
 STARTERS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
 
+# Injury severity ladder — higher = more urgent need to replace
+INJURY_SEVERITY = {
+    "ACTIVE": 0,
+    "NORMAL": 0,
+    "PROBABLE": 0,
+    "QUESTIONABLE": 1,
+    "DOUBTFUL": 2,
+    "OUT": 3,
+    "SUSPENSION": 3,
+    "IR": 4,
+    "INJURY_RESERVE": 4,
+    "PUP": 4,
+    "NA": 3,
+}
+
 
 def get_waiver_targets(league, my_team_name="", size=50, position=None):
-    """Rank free agents by your team's actual need — injuries and thin spots —
-    and flag likely handcuffs (same-team replacements for injured players)."""
+    """Rank free agents by roster need, weighting injured starters by severity."""
     fas = league.free_agents(size=size, position=position)
     wk = league.current_week
 
-    # Analyze MY roster: what positions am I thin at, and who's injured?
     my_team = next(
         (t for t in league.teams if my_team_name.lower() in t.team_name.lower()), None
     )
-    my_positions = []
-    injured_teams_by_pos = {}  # {position: set of NFL teams where my starter is hurt}
+
+    # Build per-position: how many healthy starters, and injury urgency
+    from collections import defaultdict
+
+    pos_players = defaultdict(list)  # position -> list of (severity, proTeam)
+    injured_teams_by_pos = defaultdict(set)
     if my_team:
         for p in my_team.roster:
-            my_positions.append(p.position)
-            status = getattr(p, "injuryStatus", "ACTIVE")
-            if status not in ("ACTIVE", "NORMAL", None):
-                injured_teams_by_pos.setdefault(p.position, set()).add(p.proTeam)
+            status = (getattr(p, "injuryStatus", "ACTIVE") or "ACTIVE").upper()
+            sev = INJURY_SEVERITY.get(status, 0)
+            pos_players[p.position].append(sev)
+            if sev >= 2:  # DOUBTFUL or worse = a real hole
+                injured_teams_by_pos[p.position].add(p.proTeam)
 
-    from collections import Counter
-
-    counts = Counter(my_positions)
-    # Need score per position: how short of a healthy starting count am I?
+    # Need level per position: short of starters, PLUS injury urgency
     need_level = {}
     for pos, req in STARTERS.items():
-        have = counts.get(pos, 0)
-        injured_here = len(injured_teams_by_pos.get(pos, set()))
-        # thin if below starter requirement; urgent if a starter is injured
-        thin = max(0, req - (have - injured_here))
-        need_level[pos] = thin + (injured_here * 2)  # injury weighted heavier
+        sevs = pos_players.get(pos, [])
+        healthy = sum(
+            1 for s in sevs if s <= 1
+        )  # active or questionable = playable-ish
+        thin = max(0, req - healthy)
+        # add the worst injury severity at this position as extra urgency
+        worst_injury = max(sevs) if sevs else 0
+        injury_urgency = worst_injury if worst_injury >= 2 else 0
+        need_level[pos] = thin + injury_urgency
 
     targets = []
     for p in fas:
@@ -61,12 +80,9 @@ def get_waiver_targets(league, my_team_name="", size=50, position=None):
 
         pos_need = need_level.get(p.position, 0)
         fills_need = pos_need > 0
-
-        # Handcuff flag: this free agent is at a position where my starter is
-        # injured AND plays for the same NFL team as my injured player
         is_handcuff = p.proTeam in injured_teams_by_pos.get(p.position, set())
 
-        # Ranking score: weekly projection, boosted by need and handcuff status
+        # Score: weekly projection + need (now injury-weighted) + handcuff bonus
         score = weekly + (pos_need * 15) + (25 if is_handcuff else 0)
 
         targets.append(
@@ -87,15 +103,3 @@ def get_waiver_targets(league, my_team_name="", size=50, position=None):
 
     targets.sort(key=lambda x: x["score"], reverse=True)
     return targets
-
-
-if __name__ == "__main__":
-    league = get_league()
-    my_name = os.getenv("MY_TEAM_NAME", "")
-    for t in get_waiver_targets(league, my_name, size=15):
-        flag = " ⚠️" if t["status"] != "ACTIVE" else ""
-        need = " ★NEED" if t["fills_need"] else ""
-        print(
-            f"{t['position']:4} {t['name']:22} {t['team']:4} "
-            f"proj={t['proj']:6}  owned={t['owned']}%{need}{flag}"
-        )
