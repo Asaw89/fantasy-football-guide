@@ -390,12 +390,27 @@ def render_season_mode(load_waivers):
                     f"<div style='background:#0d1420;border-left:3px solid {color};"
                     f"border-radius:8px;padding:12px;margin-top:8px'>"
                     f"<span style='color:{color};font-weight:700'>{result['verdict']}</span> "
-                    f"<span class='mono'>(net VOR {result['diff']:+})</span><br>"
-                    f"<span class='rank-num'>You give {result['give_vor']} VOR · "
-                    f"You get {result['get_vor']} VOR</span></div>",
+                    f"<span class='rank-num'>· value analysis</span></div>",
                     unsafe_allow_html=True,
                 )
 
+                # Plain-English explanation button
+                if st.button("Explain this trade"):
+                    from news import explain_trade
+
+                    with st.spinner("Analyzing the trade..."):
+                        st.session_state.trade_explanation = explain_trade(
+                            give, get, result["give_vor"], result["get_vor"]
+                        )
+
+                if st.session_state.get("trade_explanation"):
+                    st.markdown(
+                        f"<div style='background:linear-gradient(90deg,"
+                        f"rgba(0,224,164,0.08),rgba(0,224,164,0.02));border-radius:8px;"
+                        f"padding:14px;margin-top:8px;color:#ffffff;line-height:1.6'>"
+                        f"{st.session_state.trade_explanation}</div>",
+                        unsafe_allow_html=True,
+                    )
             # --- Trade recommendations for this team ---
             st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
             if st.button(f"Suggest trades with {partner_name}"):

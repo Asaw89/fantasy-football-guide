@@ -170,6 +170,35 @@ def get_top_stories(my_players=None):
     return stories
 
 
+def explain_trade(give_players, get_players, give_vor, get_vor):
+    """Explain a trade in plain English, no jargon."""
+    diff = get_vor - give_vor
+    lean = (
+        "roughly even"
+        if abs(diff) <= 5
+        else ("in your favor" if diff > 0 else "against you")
+    )
+
+    prompt = (
+        f"A fantasy manager is considering this trade:\n"
+        f"They GIVE: {', '.join(give_players)}\n"
+        f"They GET: {', '.join(get_players)}\n\n"
+        f"By value-over-replacement analysis, the trade leans {lean} "
+        f"(giving up {round(give_vor, 1)} vs getting {round(get_vor, 1)} in value). "
+        f"Explain in 2-3 plain sentences whether this is a good, bad, or fair trade "
+        f"and WHY — in terms a casual fantasy player understands. Name the players, "
+        f"talk about their roles and outlook, and avoid jargon like 'VOR.' Give a clear "
+        f"verdict they could share with the other manager."
+    )
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=350,
+        messages=[{"role": "user", "content": prompt}],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 2}],
+    )
+    return "\n".join(b.text for b in response.content if b.type == "text").strip()
+
+
 def matchup_preview(team_a_name, team_a_players, team_b_name, team_b_players):
     """Generate a WWE-style hype preview of two fantasy teams facing off."""
 
