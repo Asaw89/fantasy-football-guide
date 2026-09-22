@@ -39,7 +39,6 @@ def get_player_news(name, team, position):
 
     return {"summary": summary, "sources": sources}
 
-    # Pull the summary text
     text_parts = [block.text for block in response.content if block.type == "text"]
     summary = "\n".join(text_parts).strip()
 
