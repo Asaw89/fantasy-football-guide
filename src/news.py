@@ -137,6 +137,8 @@ def get_top_stories(my_players=None):
         if "|" in line:
             name, headline = line.split("|", 1)
             stories.append({"player": name.strip(), "headline": headline.strip()})
+    if not stories and text:
+        return [{"player": "—", "headline": "Couldn't parse news response"}]
     return stories
 
 

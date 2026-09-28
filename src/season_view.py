@@ -21,6 +21,10 @@ def render_season_mode(load_waivers):
     )
     active_team = next(t for t in TEAMS if t["label"] == chosen_label)
 
+    if st.session_state.get("rosters_for") != active_team["league_id"]:
+        st.session_state.pop("all_rosters", None)
+        st.session_state.rosters_for = active_team["league_id"]
+
     # ---- League Roster Overview (grid layout) ----
     st.markdown("<div class='sec-head'>League Rosters</div>", unsafe_allow_html=True)
     if st.button("Load all rosters"):
@@ -30,6 +34,7 @@ def render_season_mode(load_waivers):
             st.session_state.all_rosters = [
                 {
                     "team": t.team_name,
+                    "team_id": t.team_id,
                     "players": [
                         {
                             "name": p.name,
@@ -130,11 +135,6 @@ def render_season_mode(load_waivers):
                 f"<span class='mono'>wk {t['proj']}</span> "
                 f"<span class='rank-num'>· szn {t.get('season', '—')}</span>",
                 unsafe_allow_html=True,
-            )
-            need = (
-                "<span style='color:#34d399;font-size:0.75rem'>★ NEED</span>"
-                if t["fills_need"]
-                else ""
             )
             flags = ""
             if t.get("is_handcuff"):
@@ -277,18 +277,17 @@ def render_season_mode(load_waivers):
         )
     else:
         rosters = st.session_state.all_rosters
-        my_team_name = active_team["team_name"]
+        my_team_id = active_team["team_id"]
         my_roster = next(
-            (
-                r["players"]
-                for r in rosters
-                if my_team_name.lower() in r["team"].lower()
-            ),
+            (r["players"] for r in rosters if r["team_id"] == my_team_id),
             [],
         )
-        other_teams = [
-            r for r in rosters if my_team_name.lower() not in r["team"].lower()
-        ]
+        other_teams = [r for r in rosters if r["team_id"] != my_team_id]
+
+        if not my_roster:
+            st.warning(
+                f"No team with id {my_team_id} in this league — check TEAM_ID in .env"
+            )
 
         if other_teams:
             partner_name = st.selectbox(
