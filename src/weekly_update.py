@@ -38,7 +38,9 @@ n = ingest_week(season, week)
 print(f"  {n} player rows ingested\n")
 
 print("Recording matchups...")
-print("  " + record_week(league, os.getenv("LEAGUE_ID_1"), season, week) + "\n")
+print(
+    f"  Recorded {record_week(league, os.getenv('LEAGUE_ID_1'), season, week)} matchups\n"
+)
 
 conn = get_connection()
 count = conn.execute(

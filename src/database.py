@@ -16,12 +16,18 @@ def init_db():
     cur = conn.cursor()
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS players (
-            player_id   TEXT PRIMARY KEY,
-            name        TEXT,
-            position    TEXT,
-            team        TEXT,
-            opponent    TEXT
+        CREATE TABLE IF NOT EXISTS matchups (
+            league_id    TEXT,
+            season       INTEGER,
+            week         INTEGER,
+            team_a_id    INTEGER,
+            team_b_id    INTEGER,
+            team_a       TEXT,
+            team_b       TEXT,
+            score_a      REAL,
+            score_b      REAL,
+            winner_id    INTEGER,
+            PRIMARY KEY (league_id, season, week, team_a_id, team_b_id)
         )
     """)
 
