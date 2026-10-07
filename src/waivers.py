@@ -34,14 +34,12 @@ INJURY_SEVERITY = {
 }
 
 
-def get_waiver_targets(league, my_team_name="", size=50, position=None):
+def get_waiver_targets(league, my_team_id=None, size=50, position=None):
     """Rank free agents by roster need, weighting injured starters by severity."""
     fas = league.free_agents(size=size, position=position)
     wk = league.current_week
 
-    my_team = next(
-        (t for t in league.teams if my_team_name.lower() in t.team_name.lower()), None
-    )
+    my_team = next((t for t in league.teams if t.team_id == my_team_id), None)
 
     # Build per-position: how many healthy starters, and injury urgency
     from collections import defaultdict

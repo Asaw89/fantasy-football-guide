@@ -110,7 +110,7 @@ def render_season_mode(load_waivers):
         try:
             league = get_league_for(active_team)
             st.session_state.waivers = get_waiver_targets(
-                league, active_team["team_name"], size=40
+                league, active_team["team_id"], size=40
             )
         except Exception as e:
             st.session_state.waivers = None
@@ -157,12 +157,7 @@ def render_season_mode(load_waivers):
             sleeper_proj = get_weekly_projections(int(os.getenv("YEAR")), wk)
 
             team = next(
-                (
-                    t
-                    for t in league.teams
-                    if active_team["team_name"].lower() in t.team_name.lower()
-                ),
-                None,
+                (t for t in league.teams if t.team_id == active_team["team_id"]), None
             )
             lineup = []
             if team:
@@ -306,7 +301,7 @@ def render_season_mode(load_waivers):
                 from trades import scan_all_teams
 
                 st.session_state.all_trade_opps = scan_all_teams(
-                    my_roster, rosters, my_team_name
+                    my_roster, rosters, my_team_id
                 )
 
             if st.session_state.get("all_trade_opps") is not None:

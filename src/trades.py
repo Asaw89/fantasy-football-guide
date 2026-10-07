@@ -109,11 +109,11 @@ def recommend_trade(my_players, their_players):
     return suggestions
 
 
-def scan_all_teams(my_players, all_rosters, my_team_name):
+def scan_all_teams(my_players, all_rosters, my_team_id):
     """Run recommend_trade against every other team, return the best opportunities."""
     opportunities = []
     for roster in all_rosters:
-        if my_team_name.lower() in roster["team"].lower():
+        if roster["team_id"] == my_team_id:
             continue  # skip my own team
         recs = recommend_trade(my_players, roster["players"])
         for r in recs:
